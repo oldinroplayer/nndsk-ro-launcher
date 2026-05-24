@@ -1,13 +1,14 @@
 import { create } from 'zustand'
+import type { ProgressPayload } from '../../shared/types'
 
 export type LaunchStatus = 'idle' | 'setting-up' | 'launching' | 'running' | 'error'
 
 interface LauncherState {
   status: LaunchStatus
-  setupProgress: { step: string; percent: number } | null
+  setupProgress: ProgressPayload | null
   error: string | null
   setStatus: (status: LaunchStatus) => void
-  setProgress: (progress: { step: string; percent: number } | null) => void
+  setProgress: (progress: ProgressPayload | null) => void
   setError: (error: string | null) => void
 }
 

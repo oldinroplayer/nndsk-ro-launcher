@@ -1,64 +1,49 @@
-use serde::Serialize;
 use std::path::Path;
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 use tokio::process::Command;
 
 use crate::commands::audio;
-use crate::commands::check::get_prefix_path;
 use crate::commands::gecko::install_gecko;
-use crate::commands::runners::resolve_runner;
+use crate::commands::process::run_logged_command_ok;
+use crate::commands::runners::resolve_effective_runner;
 use crate::commands::settings::load_settings;
-use crate::utils::{drain_and_log, LogEvent};
-
-#[derive(Serialize, Clone)]
-struct ProgressEvent {
-    step: String,
-    percent: u32,
-}
+use crate::utils::{
+    apply_prefix_env, emit_log, emit_progress, prefix_path, write_prefix_marker,
+};
 
 #[tauri::command]
 pub async fn setup_prefix(app: AppHandle) -> Result<(), String> {
-    let prefix_path = get_prefix_path();
+    let prefix = prefix_path();
+    let runner_path = load_settings().await?.default_runner;
+    let resolved = resolve_effective_runner(Some(runner_path)).await?;
 
     emit_progress(&app, "Creando WINEPREFIX...", 5)?;
-    std::fs::create_dir_all(&prefix_path).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&prefix).map_err(|e| e.to_string())?;
 
-    let _ = tokio::process::Command::new("wineserver")
-        .arg("-k")
-        .env("WINEPREFIX", &prefix_path)
-        .env("WAYLAND_DISPLAY", "")
-        .status()
-        .await;
+    kill_wineserver(&prefix).await;
 
     emit_progress(&app, "Inicializando WINEPREFIX...", 10)?;
-    run_cmd(&app, &prefix_path, "wineboot", &["-i"]).await?;
+    run_cmd(&app, &prefix, "wineboot", &["-i"]).await?;
 
     emit_progress(&app, "Instalando Wine Gecko...", 20)?;
-    install_gecko(&app, &prefix_path, "/usr/bin/wine").await?;
+    install_gecko(&app, &prefix, &resolved.wine_bin).await?;
 
     emit_progress(&app, "Instalando DXVK...", 35)?;
-    run_winetricks(&app, &prefix_path, &["dxvk"]).await?;
+    run_winetricks(&app, &prefix, &["dxvk"]).await?;
 
     emit_progress(&app, "Instalando vcredist_2019...", 55)?;
-    run_winetricks(&app, &prefix_path, &["vcrun2019"]).await?;
+    run_winetricks(&app, &prefix, &["vcrun2019"]).await?;
 
     emit_progress(&app, "Instalando d3dx9...", 75)?;
-    run_winetricks(&app, &prefix_path, &["d3dx9"]).await?;
+    run_winetricks(&app, &prefix, &["d3dx9"]).await?;
 
     emit_progress(&app, "Instalando corefonts...", 90)?;
-    run_winetricks(&app, &prefix_path, &["corefonts"]).await?;
+    run_winetricks(&app, &prefix, &["corefonts"]).await?;
 
     emit_progress(&app, "Configurando audio...", 95)?;
-    let runner_path = load_settings().await?.default_runner;
-    if let Ok(resolved) = resolve_runner(&runner_path) {
-        let _ = audio::ensure_audio_driver(Some(&app), &prefix_path, &resolved).await;
-    }
+    let _ = audio::ensure_audio_driver(Some(&app), &prefix, &resolved).await;
 
-    std::fs::write(
-        format!("{}/.ro-launcher-configured", prefix_path),
-        "configured",
-    )
-    .map_err(|e| e.to_string())?;
+    write_prefix_marker(&prefix)?;
 
     emit_progress(&app, "¡Listo!", 100)?;
     Ok(())
@@ -66,43 +51,28 @@ pub async fn setup_prefix(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn reset_prefix(app: AppHandle) -> Result<(), String> {
-    let prefix_path = get_prefix_path();
+    let prefix = prefix_path();
 
     emit_progress(&app, "Deteniendo Wine...", 0)?;
-    let _ = Command::new("wineserver")
-        .arg("-k")
-        .env("WINEPREFIX", &prefix_path)
-        .env("WAYLAND_DISPLAY", "")
-        .status()
-        .await;
+    kill_wineserver(&prefix).await;
 
-    if Path::new(&prefix_path).exists() {
-        let _ = app.emit(
-            "ro-launcher://log",
-            LogEvent {
-                line: format!("Eliminando prefix en {prefix_path}..."),
-            },
-        );
-        std::fs::remove_dir_all(&prefix_path)
+    if Path::new(&prefix).exists() {
+        emit_log(
+            &app,
+            format!("Eliminando prefix en {prefix}..."),
+        )?;
+        std::fs::remove_dir_all(&prefix)
             .map_err(|e| format!("Error al eliminar el prefix: {e}"))?;
     }
 
     setup_prefix(app).await
 }
 
-pub async fn ensure_gecko(app: &AppHandle, prefix_path: &str) -> Result<(), String> {
-    install_gecko(app, prefix_path, "/usr/bin/wine").await
-}
-
-fn emit_progress(app: &AppHandle, step: &str, percent: u32) -> Result<(), String> {
-    app.emit(
-        "ro-launcher://progress",
-        ProgressEvent {
-            step: step.to_string(),
-            percent,
-        },
-    )
-    .map_err(|e| e.to_string())
+async fn kill_wineserver(prefix_path: &str) {
+    let mut cmd = Command::new("wineserver");
+    cmd.arg("-k");
+    apply_prefix_env(&mut cmd, prefix_path);
+    let _ = cmd.status().await;
 }
 
 async fn run_winetricks(
@@ -115,25 +85,8 @@ async fn run_winetricks(
     for pkg in packages {
         cmd.arg(pkg);
     }
-    cmd.env("WINEPREFIX", prefix_path)
-        .env("WAYLAND_DISPLAY", "")
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
-
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| format!("Error al ejecutar winetricks: {}", e))?;
-
-    drain_and_log(app, &mut child).await;
-
-    let status = child.wait().await.map_err(|e| e.to_string())?;
-    if !status.success() {
-        return Err(format!(
-            "winetricks falló con código: {:?}",
-            status.code()
-        ));
-    }
-    Ok(())
+    apply_prefix_env(&mut cmd, prefix_path);
+    run_logged_command_ok(app, cmd, "winetricks").await
 }
 
 async fn run_cmd(
@@ -146,16 +99,6 @@ async fn run_cmd(
     for arg in args {
         cmd.arg(arg);
     }
-    cmd.env("WINEPREFIX", prefix_path)
-        .env("WAYLAND_DISPLAY", "")
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
-
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| format!("Error al ejecutar {}: {}", prog, e))?;
-
-    drain_and_log(app, &mut child).await;
-    child.wait().await.map_err(|e| e.to_string())?;
-    Ok(())
+    apply_prefix_env(&mut cmd, prefix_path);
+    run_logged_command_ok(app, cmd, prog).await
 }

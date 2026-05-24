@@ -2,11 +2,20 @@ use serde::Serialize;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+use crate::commands::settings::effective_runner;
+
 // ── Runner resolution ─────────────────────────────────────────────────────────
 
 pub struct ResolvedRunner {
     pub wine_bin: String,
     pub ld_library_path: Option<String>,
+}
+
+pub async fn resolve_effective_runner(
+    override_path: Option<String>,
+) -> Result<ResolvedRunner, String> {
+    let path = effective_runner(override_path).await?;
+    resolve_runner(&path)
 }
 
 pub fn resolve_runner(runner_path: &str) -> Result<ResolvedRunner, String> {

@@ -1,5 +1,6 @@
 import { listen } from '@tauri-apps/api/event'
 import { useEffect } from 'react'
+import type { ProgressPayload } from '../../shared/types'
 import { useLauncherStore } from './launcher.store'
 import { useLogsStore } from '../logs/logs.store'
 import { LAUNCHER_EVENTS } from '../../shared/constants'
@@ -15,9 +16,8 @@ export function useLauncherEvents() {
       addLog(e.payload.line),
     ).then((fn) => cleanups.push(fn))
 
-    listen<{ step: string; percent: number }>(
-      LAUNCHER_EVENTS.PROGRESS,
-      (e) => setProgress(e.payload),
+    listen<ProgressPayload>(LAUNCHER_EVENTS.PROGRESS, (e) =>
+      setProgress(e.payload),
     ).then((fn) => cleanups.push(fn))
 
     listen<{ code: number }>(LAUNCHER_EVENTS.GAME_EXIT, (e) => {

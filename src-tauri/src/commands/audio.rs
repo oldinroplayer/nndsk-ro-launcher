@@ -1,10 +1,10 @@
 use serde::Serialize;
 use std::path::Path;
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 use tokio::process::Command;
 
 use crate::commands::runners::ResolvedRunner;
-use crate::utils::{apply_runner_env, LogEvent};
+use crate::utils::{apply_prefix_env, apply_runner_env, emit_log_opt};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -145,11 +145,10 @@ pub async fn read_current_driver(
         "/v",
         "Audio",
     ])
-    .env("WINEPREFIX", prefix_path)
-    .env("WAYLAND_DISPLAY", "")
     .stdout(std::process::Stdio::piped())
     .stderr(std::process::Stdio::null());
 
+    apply_prefix_env(&mut cmd, prefix_path);
     apply_runner_env(&mut cmd, runner.ld_library_path.as_deref());
 
     let output = cmd.output().await.ok()?;
@@ -182,11 +181,10 @@ async fn set_audio_driver(
         value,
         "/f",
     ])
-    .env("WINEPREFIX", prefix_path)
-    .env("WAYLAND_DISPLAY", "")
     .stdout(std::process::Stdio::null())
     .stderr(std::process::Stdio::piped());
 
+    apply_prefix_env(&mut cmd, prefix_path);
     apply_runner_env(&mut cmd, runner.ld_library_path.as_deref());
 
     let output = cmd
@@ -202,12 +200,6 @@ async fn set_audio_driver(
     }
 }
 
-fn emit_log(app: Option<&AppHandle>, line: impl Into<String>) {
-    if let Some(app) = app {
-        let _ = app.emit("ro-launcher://log", LogEvent { line: line.into() });
-    }
-}
-
 pub async fn ensure_audio_driver(
     app: Option<&AppHandle>,
     prefix_path: &str,
@@ -219,7 +211,7 @@ pub async fn ensure_audio_driver(
     if recommended == AudioDriver::None {
         let message = detect_audio_backends(current).warning;
         if let Some(msg) = &message {
-            emit_log(app, msg);
+            emit_log_opt(app, msg);
         }
         return Ok(EnsureAudioResult {
             configured: false,
@@ -230,7 +222,7 @@ pub async fn ensure_audio_driver(
 
     if recommended == AudioDriver::Pulse {
         if current == Some(AudioDriver::Alsa) {
-            emit_log(
+            emit_log_opt(
                 app,
                 format!("Audio: {} (configurado manualmente)", AudioDriver::Alsa.label()),
             );
@@ -243,7 +235,7 @@ pub async fn ensure_audio_driver(
 
         if current.is_none() {
             set_audio_driver(prefix_path, runner, AudioDriver::Pulse).await?;
-            emit_log(
+            emit_log_opt(
                 app,
                 format!("Audio configurado: {}", AudioDriver::Pulse.label()),
             );
@@ -261,9 +253,9 @@ pub async fn ensure_audio_driver(
         set_audio_driver(prefix_path, runner, AudioDriver::Alsa).await?;
         let message = detect_audio_backends(Some(AudioDriver::Alsa)).warning;
         if let Some(msg) = &message {
-            emit_log(app, format!("Audio configurado: ALSA (fallback). {msg}"));
+            emit_log_opt(app, format!("Audio configurado: ALSA (fallback). {msg}"));
         } else {
-            emit_log(app, "Audio configurado: ALSA (fallback)".to_string());
+            emit_log_opt(app, "Audio configurado: ALSA (fallback)".to_string());
         }
         return Ok(EnsureAudioResult {
             configured: true,

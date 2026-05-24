@@ -1,13 +1,15 @@
-use serde::Serialize;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
-use tokio::process::Command;
 
-use crate::commands::check::get_prefix_path;
-use crate::commands::runners::resolve_runner;
-use crate::commands::settings::effective_runner;
-use crate::utils::{apply_runner_env, work_dir_from_exe};
+use crate::commands::runners::resolve_effective_runner;
 use crate::models::server::ServerConfig;
+use crate::models::server_tools::{
+    DgVoodooStatus, InstallDgVoodooResult, ServerToolsStatus, ToolInfo,
+    UninstallDgVoodooResult,
+};
+use crate::utils::{
+    apply_tool_env, effective_prefix, required_game_dir, wine_command,
+};
 
 const DGVOODOO_TEMPLATE_FILES: &[&str] = &[
     "D3DImm.dll",
@@ -18,59 +20,12 @@ const DGVOODOO_TEMPLATE_FILES: &[&str] = &[
 
 const DGVOODOO_REQUIRED_FILES: &[&str] = &["D3DImm.dll", "DDraw.dll", "dgVoodoo.conf"];
 
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct ToolInfo {
-    pub found: bool,
-    pub path: Option<String>,
-    pub label: Option<String>,
-}
-
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct DgVoodooStatus {
-    pub cpl: ToolInfo,
-    pub d3dimm_dll: ToolInfo,
-    pub ddraw_dll: ToolInfo,
-    pub conf: ToolInfo,
-    pub configured: bool,
-    pub needs_install: bool,
-    pub can_auto_install: bool,
-    pub can_uninstall: bool,
-    pub issues: Vec<String>,
-}
-
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct InstallDgVoodooResult {
-    pub installed: Vec<String>,
-    pub status: ServerToolsStatus,
-}
-
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct UninstallDgVoodooResult {
-    pub removed: Vec<String>,
-    pub status: ServerToolsStatus,
-}
-
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct ServerToolsStatus {
-    pub game_dir: String,
-    pub open_setup: ToolInfo,
-    pub patcher: ToolInfo,
-    pub dgvoodoo: DgVoodooStatus,
-}
-
 #[tauri::command]
 pub async fn scan_server_tools(
     app: AppHandle,
     server: ServerConfig,
 ) -> Result<ServerToolsStatus, String> {
-    let game_dir = game_dir_from_server(&server)?;
-    let can_auto_install = dgvoodoo_template_dir(&app).is_ok();
-    scan_game_dir(&game_dir, &server, can_auto_install)
+    scan_server_status(&app, &server)
 }
 
 #[tauri::command]
@@ -78,10 +33,9 @@ pub async fn install_dgvoodoo(
     app: AppHandle,
     server: ServerConfig,
 ) -> Result<InstallDgVoodooResult, String> {
-    let game_dir = game_dir_from_server(&server)?;
+    let game_dir = required_game_dir(&server.executable_path)?;
     let installed = install_dgvoodoo_files(&app, Path::new(&game_dir))?;
-    let can_auto_install = dgvoodoo_template_dir(&app).is_ok();
-    let status = scan_game_dir(&game_dir, &server, can_auto_install)?;
+    let status = scan_server_status(&app, &server)?;
     Ok(InstallDgVoodooResult { installed, status })
 }
 
@@ -90,10 +44,9 @@ pub async fn uninstall_dgvoodoo(
     app: AppHandle,
     server: ServerConfig,
 ) -> Result<UninstallDgVoodooResult, String> {
-    let game_dir = game_dir_from_server(&server)?;
+    let game_dir = required_game_dir(&server.executable_path)?;
     let removed = uninstall_dgvoodoo_files(Path::new(&game_dir))?;
-    let can_auto_install = dgvoodoo_template_dir(&app).is_ok();
-    let status = scan_game_dir(&game_dir, &server, can_auto_install)?;
+    let status = scan_server_status(&app, &server)?;
     Ok(UninstallDgVoodooResult { removed, status })
 }
 
@@ -102,9 +55,8 @@ pub async fn launch_server_tool(
     app: AppHandle,
     server: ServerConfig,
     tool: String,
-    runner: Option<String>,
 ) -> Result<(), String> {
-    let status = scan_server_tools(app, server.clone()).await?;
+    let status = scan_server_status(&app, &server)?;
     let exe_path = match tool.as_str() {
         "opensetup" => status
             .open_setup
@@ -122,32 +74,27 @@ pub async fn launch_server_tool(
         other => return Err(format!("Herramienta desconocida: {other}")),
     };
 
-    let prefix_path = server
-        .wine_prefix
-        .clone()
-        .unwrap_or_else(get_prefix_path);
-
-    let runner_path = effective_runner(runner.or_else(|| server.runner.clone())).await?;
-    let resolved = resolve_runner(&runner_path)?;
+    let prefix = effective_prefix(server.wine_prefix.clone());
+    let resolved = resolve_effective_runner(server.runner.clone()).await?;
 
     let work_dir = {
-        let d = work_dir_from_exe(&exe_path);
-        if d.is_empty() { game_dir_from_server(&server).unwrap_or_default() } else { d }
+        let d = required_game_dir(&exe_path).unwrap_or_default();
+        if d.is_empty() {
+            required_game_dir(&server.executable_path)?
+        } else {
+            d
+        }
     };
 
-    let mut cmd = Command::new(&resolved.wine_bin);
-    cmd.arg(&exe_path)
-        .env("WINEPREFIX", &prefix_path)
-        .env("WAYLAND_DISPLAY", "")
-        .env("DXVK_ASYNC", "1")
-        .env("WINE_LARGE_ADDRESS_AWARE", "1")
-        .current_dir(&work_dir);
-
-    if tool == "dgvoodoo" || tool == "opensetup" {
-        cmd.env("WINEDLLOVERRIDES", "d3dimm=n,b;ddraw=n,b");
-    }
-
-    apply_runner_env(&mut cmd, resolved.ld_library_path.as_deref());
+    let tool_name = tool.clone();
+    let mut cmd = wine_command(
+        &resolved.wine_bin,
+        resolved.ld_library_path.as_deref(),
+        &exe_path,
+        &prefix,
+        &work_dir,
+        |cmd| apply_tool_env(cmd, &tool_name),
+    );
 
     cmd.spawn()
         .map_err(|e| format!("Error al abrir la herramienta: {e}"))?;
@@ -155,13 +102,13 @@ pub async fn launch_server_tool(
     Ok(())
 }
 
-fn game_dir_from_server(server: &ServerConfig) -> Result<String, String> {
-    let d = work_dir_from_exe(&server.executable_path);
-    if d.is_empty() {
-        Err("Ruta del ejecutable inválida".to_string())
-    } else {
-        Ok(d)
-    }
+fn scan_server_status(
+    app: &AppHandle,
+    server: &ServerConfig,
+) -> Result<ServerToolsStatus, String> {
+    let game_dir = required_game_dir(&server.executable_path)?;
+    let can_auto_install = dgvoodoo_template_dir(app).is_ok();
+    scan_game_dir(&game_dir, server, can_auto_install)
 }
 
 fn scan_game_dir(
@@ -526,7 +473,7 @@ mod tests {
             runner: None,
         };
 
-        let game_dir = game_dir_from_server(&server).unwrap();
+        let game_dir = required_game_dir(&server.executable_path).unwrap();
         let dev_template =
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/dgvoodoo");
         let can_auto_install = template_is_complete(&dev_template);

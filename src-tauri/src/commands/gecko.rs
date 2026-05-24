@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 use tokio::process::Command;
 
-use crate::commands::check::check_gecko_installed;
-use crate::utils::{app_data_dir, drain_and_log, LogEvent};
+use crate::commands::process::run_logged_command_ok;
+use crate::utils::{app_data_dir, apply_prefix_env, emit_log};
 
 const GECKO_VERSION: &str = "2.47.4";
 const GECKO_BASE_URL: &str = "https://dl.winehq.org/wine/wine-gecko";
@@ -37,6 +37,41 @@ fn collect_msis(dir: &Path, msis: &mut Vec<PathBuf>) {
     }
 }
 
+pub fn check_gecko_installed(prefix_path: &str) -> bool {
+    gecko_has_runtime(&format!(
+        "{prefix_path}/drive_c/windows/system32/gecko"
+    )) || gecko_has_runtime(&format!(
+        "{prefix_path}/drive_c/windows/syswow64/gecko"
+    ))
+}
+
+fn gecko_has_runtime(gecko_dir: &str) -> bool {
+    dir_contains_xul(Path::new(gecko_dir))
+}
+
+fn dir_contains_xul(dir: &Path) -> bool {
+    if !dir.is_dir() {
+        return false;
+    }
+
+    if dir.join("xul.dll").is_file() {
+        return true;
+    }
+
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() && dir_contains_xul(&path) {
+            return true;
+        }
+    }
+
+    false
+}
+
 fn gecko_cache_dir() -> PathBuf {
     app_data_dir().join("cache/gecko")
 }
@@ -60,12 +95,10 @@ async fn ensure_cached_gecko_msis(app: &AppHandle) -> Result<Vec<PathBuf>, Strin
         let dest = cache_dir.join(&file);
         if !dest.exists() {
             let url = format!("{GECKO_BASE_URL}/{GECKO_VERSION}/{file}");
-            let _ = app.emit(
-                "ro-launcher://log",
-                LogEvent {
-                    line: format!("Descargando Wine Gecko ({file})..."),
-                },
-            );
+            emit_log(
+                app,
+                format!("Descargando Wine Gecko ({file})..."),
+            )?;
             download_file(&url, &dest).await?;
         }
         msis.push(dest);
@@ -103,22 +136,14 @@ pub async fn install_gecko(
 
     let msis = ensure_cached_gecko_msis(app).await?;
 
-    let _ = app.emit(
-        "ro-launcher://log",
-        LogEvent {
-            line: "Instalando Wine Gecko en el prefix...".to_string(),
-        },
-    );
+    emit_log(app, "Instalando Wine Gecko en el prefix...")?;
 
     for msi in msis {
         let msi_str = msi.to_string_lossy();
-        run_wine(
-            app,
-            prefix_path,
-            wine_bin,
-            &["msiexec", "/i", msi_str.as_ref(), "/qn"],
-        )
-        .await?;
+        let mut cmd = Command::new(wine_bin);
+        cmd.args(["msiexec", "/i", msi_str.as_ref(), "/qn"]);
+        apply_prefix_env(&mut cmd, prefix_path);
+        run_logged_command_ok(app, cmd, &format!("wine msiexec {msi_str}")).await?;
     }
 
     if !check_gecko_installed(prefix_path) {
@@ -126,37 +151,6 @@ pub async fn install_gecko(
             "Wine Gecko no quedó instalado en el prefix. Intenta rearmar el WINEPREFIX."
                 .to_string(),
         );
-    }
-
-    Ok(())
-}
-
-async fn run_wine(
-    app: &AppHandle,
-    prefix_path: &str,
-    wine_bin: &str,
-    args: &[&str],
-) -> Result<(), String> {
-    let mut cmd = Command::new(wine_bin);
-    cmd.args(args)
-        .env("WINEPREFIX", prefix_path)
-        .env("WAYLAND_DISPLAY", "")
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
-
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| format!("Error al ejecutar {wine_bin}: {e}"))?;
-
-    drain_and_log(app, &mut child).await;
-
-    let status = child.wait().await.map_err(|e| e.to_string())?;
-    if !status.success() {
-        return Err(format!(
-            "Comando falló ({wine_bin} {}): {:?}",
-            args.join(" "),
-            status.code()
-        ));
     }
 
     Ok(())

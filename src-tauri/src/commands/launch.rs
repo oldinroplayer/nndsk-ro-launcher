@@ -1,23 +1,17 @@
-use serde::Serialize;
-use tauri::{AppHandle, Emitter};
-use tokio::io::AsyncBufReadExt;
-use tokio::process::Command;
-
 use std::sync::Arc;
 
-use crate::commands::audio::{self, mmdevapi_recovery_hint};
-use crate::commands::check::get_prefix_path;
-use crate::commands::runners::resolve_runner;
-use crate::commands::settings::effective_runner;
-use crate::commands::setup::ensure_gecko;
-use crate::models::server::ServerConfig;
-use crate::utils::{apply_runner_env, should_log_line, work_dir_from_exe, LogEvent};
-use crate::GameState;
+use tauri::{AppHandle, Emitter};
 
-#[derive(Serialize, Clone)]
-struct ExitEvent {
-    code: i32,
-}
+use crate::commands::audio;
+use crate::commands::gecko::install_gecko;
+use crate::commands::process::drain_game_output;
+use crate::commands::runners::resolve_effective_runner;
+use crate::models::server::ServerConfig;
+use crate::utils::{
+    apply_game_env, effective_prefix, is_prefix_configured, pipe_output, wine_command,
+    work_dir_from_exe, ExitEvent, EVENT_GAME_EXIT,
+};
+use crate::GameState;
 
 #[tauri::command]
 pub async fn launch_game(
@@ -25,93 +19,50 @@ pub async fn launch_game(
     state: tauri::State<'_, GameState>,
     server: ServerConfig,
 ) -> Result<(), String> {
-    let prefix_path = server
-        .wine_prefix
-        .clone()
-        .unwrap_or_else(get_prefix_path);
+    let prefix = effective_prefix(server.wine_prefix.clone());
 
-    let marker = format!("{}/.ro-launcher-configured", prefix_path);
-    if !std::path::Path::new(&marker).exists() {
+    if !is_prefix_configured(&prefix) {
         return Err(
             "El WINEPREFIX no está configurado. Ejecuta el setup primero.".to_string(),
         );
     }
 
-    let runner_path = effective_runner(server.runner.clone()).await?;
-    let resolved = resolve_runner(&runner_path)?;
+    let resolved = resolve_effective_runner(server.runner.clone()).await?;
 
-    ensure_gecko(&app, &prefix_path).await?;
-    audio::ensure_audio_driver(Some(&app), &prefix_path, &resolved).await?;
+    install_gecko(&app, &prefix, &resolved.wine_bin).await?;
+    audio::ensure_audio_driver(Some(&app), &prefix, &resolved).await?;
 
     let exe_path = server.executable_path.clone();
     let work_dir = work_dir_from_exe(&exe_path);
 
-    let mut cmd = Command::new(&resolved.wine_bin);
-    cmd.arg(&exe_path)
-        .env("WINEPREFIX", &prefix_path)
-        .env("WAYLAND_DISPLAY", "")
-        .env("DXVK_ASYNC", "1")
-        .env("DXVK_CONFIG", "d3d9.forceSamplerTypeSpecConstants=True")
-        .env("WINE_LARGE_ADDRESS_AWARE", "1")
-        .env("WINEDLLOVERRIDES", "d3dimm=n,b;ddraw=n,b")
-        .current_dir(&work_dir)
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
-
-    apply_runner_env(&mut cmd, resolved.ld_library_path.as_deref());
+    let mut cmd = wine_command(
+        &resolved.wine_bin,
+        resolved.ld_library_path.as_deref(),
+        &exe_path,
+        &prefix,
+        &work_dir,
+        apply_game_env,
+    );
+    pipe_output(&mut cmd);
 
     let mut child = cmd
         .spawn()
-        .map_err(|e| format!("Error al lanzar el juego: {}", e))?;
+        .map_err(|e| format!("Error al lanzar el juego: {e}"))?;
 
     if let Some(pid) = child.id() {
         *state.pid.lock().unwrap() = Some(pid);
     }
 
-    let stdout = child.stdout.take();
-    let stderr = child.stderr.take();
-
-    // stdout: filter fixme: only (game output is useful)
-    let app1 = app.clone();
-    let h1 = tokio::spawn(async move {
-        if let Some(out) = stdout {
-            let mut lines = tokio::io::BufReader::new(out).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                if !line.contains("fixme:") {
-                    let _ = app1.emit("ro-launcher://log", LogEvent { line });
-                }
-            }
-        }
-    });
-
-    // stderr: surface audio errors and meaningful Wine messages
-    let app2 = app.clone();
-    let h2 = tokio::spawn(async move {
-        if let Some(err) = stderr {
-            let mut lines = tokio::io::BufReader::new(err).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                if audio::is_mmdevapi_audio_error(&line) {
-                    let _ = app2.emit("ro-launcher://log", LogEvent {
-                        line: mmdevapi_recovery_hint().to_string(),
-                    });
-                }
-                if line.contains("err:") || (should_log_line(&line) && !line.is_empty()) {
-                    let _ = app2.emit("ro-launcher://log", LogEvent { line });
-                }
-            }
-        }
-    });
-
     let pid_state = Arc::clone(&state.pid);
     tokio::spawn(async move {
-        let _ = tokio::join!(h1, h2);
+        drain_game_output(&app, &mut child).await;
         let code = child
             .wait()
             .await
             .map(|s| s.code().unwrap_or(-1))
             .unwrap_or(-1);
         *pid_state.lock().unwrap() = None;
-        let _ = app.emit("ro-launcher://game-exit", ExitEvent { code });
+        let _ = app.emit(EVENT_GAME_EXIT, ExitEvent { code });
     });
 
     Ok(())
@@ -121,7 +72,7 @@ pub async fn launch_game(
 pub async fn stop_game(state: tauri::State<'_, GameState>) -> Result<(), String> {
     let pid = state.pid.lock().unwrap().take();
     if let Some(pid) = pid {
-        let _ = Command::new("kill")
+        let _ = tokio::process::Command::new("kill")
             .args(["-TERM", &pid.to_string()])
             .status()
             .await;

@@ -1,3 +1,17 @@
+export interface ProgressPayload {
+  step: string
+  percent: number
+}
+
+export interface ServerConfig {
+  id: string
+  name: string
+  executablePath: string
+  patcherPath?: string
+  winePrefix?: string
+  runner?: string // path to wine/proton binary; undefined = use global setting
+}
+
 export interface DependencyStatus {
   wine: boolean
   winetricks: boolean
@@ -43,6 +57,16 @@ export interface ServerToolsStatus {
   openSetup: ToolInfo
   patcher: ToolInfo
   dgvoodoo: DgVoodooStatus
+}
+
+export interface InstallDgVoodooResult {
+  installed: string[]
+  status: ServerToolsStatus
+}
+
+export interface UninstallDgVoodooResult {
+  removed: string[]
+  status: ServerToolsStatus
 }
 
 export type ToolKind = 'opensetup' | 'patcher' | 'dgvoodoo'

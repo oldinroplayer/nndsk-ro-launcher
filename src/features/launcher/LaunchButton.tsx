@@ -1,10 +1,9 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { ServerConfig } from '../servers/servers.types'
-import type { DependencyStatus } from '../../shared/types'
+import type { DependencyStatus, ServerConfig } from '../../shared/types'
 import { useLauncherStore, isLauncherBusy } from './launcher.store'
 import { useLogsStore } from '../logs/logs.store'
 import { useSettingsStore } from '../settings/settings.store'
-import { resolveRunner } from '../../shared/resolveRunner'
+import { resolveRunner, withResolvedRunner } from '../../shared/resolveRunner'
 
 interface Props {
   server: ServerConfig | null
@@ -40,10 +39,7 @@ export function LaunchButton({ server }: Props) {
       addLog(`Lanzando ${server.name} con ${selectedRunner || 'wine'}...`)
 
       await invoke('launch_game', {
-        server: {
-          ...server,
-          runner: resolveRunner(server, selectedRunner),
-        },
+        server: withResolvedRunner(server, selectedRunner),
       })
       setStatus('running')
     } catch (err) {

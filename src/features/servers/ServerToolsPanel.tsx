@@ -1,11 +1,16 @@
 import { invoke } from '@tauri-apps/api/core'
 import { useCallback, useEffect, useState } from 'react'
-import type { ServerConfig } from './servers.types'
-import type { ServerToolsStatus, ToolKind } from '../../shared/types'
+import type {
+  InstallDgVoodooResult,
+  ServerConfig,
+  ServerToolsStatus,
+  ToolKind,
+  UninstallDgVoodooResult,
+} from '../../shared/types'
 import { useSettingsStore } from '../settings/settings.store'
 import { Panel } from '../../shared/ui/Panel'
 import { ToolRow } from './ToolRow'
-import { resolveRunner } from '../../shared/resolveRunner'
+import { withResolvedRunner } from '../../shared/resolveRunner'
 
 interface Props {
   server: ServerConfig | null
@@ -50,10 +55,7 @@ export function ServerToolsPanel({ server }: Props) {
     setInstallingDgVoodoo(true)
     setError(null)
     try {
-      const result = await invoke<{ installed: string[]; status: ServerToolsStatus }>(
-        'install_dgvoodoo',
-        { server },
-      )
+      const result = await invoke<InstallDgVoodooResult>('install_dgvoodoo', { server })
       setStatus(result.status)
     } catch (err) {
       setError(String(err))
@@ -73,10 +75,7 @@ export function ServerToolsPanel({ server }: Props) {
     setUninstallingDgVoodoo(true)
     setError(null)
     try {
-      const result = await invoke<{ removed: string[]; status: ServerToolsStatus }>(
-        'uninstall_dgvoodoo',
-        { server },
-      )
+      const result = await invoke<UninstallDgVoodooResult>('uninstall_dgvoodoo', { server })
       setStatus(result.status)
     } catch (err) {
       setError(String(err))
@@ -92,12 +91,8 @@ export function ServerToolsPanel({ server }: Props) {
     setError(null)
     try {
       await invoke('launch_server_tool', {
-        server: {
-          ...server,
-          runner: resolveRunner(server, selectedRunner),
-        },
+        server: withResolvedRunner(server, selectedRunner),
         tool,
-        runner: resolveRunner(server, selectedRunner),
       })
     } catch (err) {
       setError(String(err))

@@ -1,37 +1,23 @@
-use serde::Serialize;
 use std::path::Path;
 
 use crate::commands::audio::{self, AudioDriver};
-use crate::commands::runners::resolve_runner;
-use crate::commands::settings::effective_runner;
-use crate::utils::app_data_dir;
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DependencyStatus {
-    pub wine: bool,
-    pub winetricks: bool,
-    pub dxvk: bool,
-    pub prefix_configured: bool,
-    pub audio_ok: bool,
-    pub audio_driver: String,
-    pub audio_warning: Option<String>,
-}
+use crate::commands::runners::resolve_effective_runner;
+use crate::models::dependency::DependencyStatus;
+use crate::utils::{is_dxvk_installed, is_prefix_configured, prefix_path};
 
 #[tauri::command]
 pub async fn check_dependencies(runner: Option<String>) -> Result<DependencyStatus, String> {
     let wine = Path::new("/usr/bin/wine-cachyos").exists() || Path::new("/usr/bin/wine").exists();
     let winetricks = Path::new("/usr/bin/winetricks").exists();
 
-    let prefix_path = get_prefix_path();
-    let dxvk = check_dxvk_installed(&prefix_path);
-    let prefix_configured = check_prefix_configured(&prefix_path);
+    let prefix = prefix_path();
+    let dxvk = is_dxvk_installed(&prefix);
+    let prefix_configured = is_prefix_configured(&prefix);
 
-    let runner_path = effective_runner(runner).await?;
-    let resolved = resolve_runner(&runner_path)?;
+    let resolved = resolve_effective_runner(runner).await?;
 
     let current_driver = if prefix_configured {
-        audio::read_current_driver(&prefix_path, &resolved).await
+        audio::read_current_driver(&prefix, &resolved).await
     } else {
         None
     };
@@ -51,55 +37,4 @@ pub async fn check_dependencies(runner: Option<String>) -> Result<DependencyStat
         audio_driver: audio_driver.as_str().to_string(),
         audio_warning: audio_status.warning,
     })
-}
-
-pub fn get_prefix_path() -> String {
-    app_data_dir().join("prefix").to_string_lossy().to_string()
-}
-
-pub fn check_gecko_installed(prefix_path: &str) -> bool {
-    gecko_has_runtime(&format!(
-        "{prefix_path}/drive_c/windows/system32/gecko"
-    )) || gecko_has_runtime(&format!(
-        "{prefix_path}/drive_c/windows/syswow64/gecko"
-    ))
-}
-
-fn gecko_has_runtime(gecko_dir: &str) -> bool {
-    dir_contains_xul(Path::new(gecko_dir))
-}
-
-fn dir_contains_xul(dir: &Path) -> bool {
-    if !dir.is_dir() {
-        return false;
-    }
-
-    if dir.join("xul.dll").is_file() {
-        return true;
-    }
-
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return false;
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() && dir_contains_xul(&path) {
-            return true;
-        }
-    }
-
-    false
-}
-
-fn check_dxvk_installed(prefix_path: &str) -> bool {
-    Path::new(&format!(
-        "{}/drive_c/windows/system32/d3d9.dll",
-        prefix_path
-    ))
-    .exists()
-}
-
-fn check_prefix_configured(prefix_path: &str) -> bool {
-    Path::new(&format!("{}/.ro-launcher-configured", prefix_path)).exists()
 }

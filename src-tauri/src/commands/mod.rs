@@ -2,6 +2,7 @@ pub mod audio;
 pub mod check;
 pub mod gecko;
 pub mod launch;
+pub mod process;
 pub mod runners;
 pub mod servers;
 pub mod server_tools;
