@@ -1,16 +1,9 @@
-use serde::Serialize;
 use std::path::{Path, PathBuf};
-
 use tauri::{AppHandle, Emitter};
-use tokio::io::AsyncBufReadExt;
 use tokio::process::Command;
 
 use crate::commands::check::check_gecko_installed;
-
-#[derive(Clone, Serialize)]
-struct LogEvent {
-    line: String,
-}
+use crate::utils::{app_data_dir, drain_and_log, LogEvent};
 
 const GECKO_VERSION: &str = "2.47.4";
 const GECKO_BASE_URL: &str = "https://dl.winehq.org/wine/wine-gecko";
@@ -45,8 +38,7 @@ fn collect_msis(dir: &Path, msis: &mut Vec<PathBuf>) {
 }
 
 fn gecko_cache_dir() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_default();
-    PathBuf::from(format!("{home}/.local/share/ro-launcher/cache/gecko"))
+    app_data_dir().join("cache/gecko")
 }
 
 async fn ensure_cached_gecko_msis(app: &AppHandle) -> Result<Vec<PathBuf>, String> {
@@ -91,9 +83,10 @@ async fn download_file(url: &str, dest: &Path) -> Result<(), String> {
         .map_err(|e| format!("Error al descargar Gecko: {e}"))?;
 
     if !status.success() {
-        return Err(format!(
+        return Err(
             "No se pudo descargar Wine Gecko. Verifica tu conexión a internet e intenta de nuevo."
-        ));
+                .to_string(),
+        );
     }
 
     Ok(())
@@ -130,7 +123,8 @@ pub async fn install_gecko(
 
     if !check_gecko_installed(prefix_path) {
         return Err(
-            "Wine Gecko no quedó instalado en el prefix. Intenta rearmar el WINEPREFIX.".to_string(),
+            "Wine Gecko no quedó instalado en el prefix. Intenta rearmar el WINEPREFIX."
+                .to_string(),
         );
     }
 
@@ -166,39 +160,4 @@ async fn run_wine(
     }
 
     Ok(())
-}
-
-async fn drain_and_log(app: &AppHandle, child: &mut tokio::process::Child) {
-    let stdout = child.stdout.take();
-    let stderr = child.stderr.take();
-
-    let app1 = app.clone();
-    let h1 = tokio::spawn(async move {
-        if let Some(out) = stdout {
-            let mut lines = tokio::io::BufReader::new(out).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                if should_log_line(&line) {
-                    let _ = app1.emit("ro-launcher://log", LogEvent { line });
-                }
-            }
-        }
-    });
-
-    let app2 = app.clone();
-    let h2 = tokio::spawn(async move {
-        if let Some(err) = stderr {
-            let mut lines = tokio::io::BufReader::new(err).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                if should_log_line(&line) {
-                    let _ = app2.emit("ro-launcher://log", LogEvent { line });
-                }
-            }
-        }
-    });
-
-    let _ = tokio::join!(h1, h2);
-}
-
-fn should_log_line(line: &str) -> bool {
-    !line.contains("fixme:") && !line.contains("libEGL warning")
 }

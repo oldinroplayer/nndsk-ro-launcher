@@ -1,10 +1,10 @@
 import { invoke } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event'
-import { useEffect } from 'react'
-import type { ServerConfig } from '../servers/servers.config'
-import { useLauncherStore } from './launcher.store'
+import type { ServerConfig } from '../servers/servers.types'
+import type { DependencyStatus } from '../../shared/types'
+import { useLauncherStore, isLauncherBusy } from './launcher.store'
 import { useLogsStore } from '../logs/logs.store'
 import { useSettingsStore } from '../settings/settings.store'
+import { resolveRunner } from '../../shared/resolveRunner'
 
 interface Props {
   server: ServerConfig | null
@@ -16,53 +16,13 @@ export function LaunchButton({ server }: Props) {
   const addLog = useLogsStore((s) => s.addLog)
   const selectedRunner = useSettingsStore((s) => s.selectedRunner)
 
-  useEffect(() => {
-    const cleanups: Array<() => void> = []
-
-    listen<{ line: string }>('ro-launcher://log', (e) =>
-      addLog(e.payload.line),
-    ).then((fn) => cleanups.push(fn))
-
-    listen<{ step: string; percent: number }>(
-      'ro-launcher://progress',
-      (e) => setProgress(e.payload),
-    ).then((fn) => cleanups.push(fn))
-
-    listen<{ code: number }>('ro-launcher://game-exit', (e) => {
-      const code = e.payload.code
-      if (code !== 0) {
-        addLog(`El juego cerró inesperadamente (código ${code})`)
-        setError(`El juego cerró inesperadamente (código ${code})`)
-        setStatus('error')
-      } else {
-        addLog('Juego cerrado')
-        setStatus('idle')
-      }
-    }).then((fn) => cleanups.push(fn))
-
-    listen<{ message: string }>('ro-launcher://error', (e) => {
-      setError(e.payload.message)
-      setStatus('error')
-    }).then((fn) => cleanups.push(fn))
-
-    return () => cleanups.forEach((fn) => fn())
-  }, [])
-
   const handleLaunch = async () => {
     if (!server) return
     if (status === 'error') setError(null)
 
     try {
-      const deps = await invoke<{
-        wine: boolean
-        winetricks: boolean
-        dxvk: boolean
-        prefixConfigured: boolean
-        audioOk: boolean
-        audioDriver: string
-        audioWarning?: string
-      }>('check_dependencies', {
-        runner: server.runner ?? selectedRunner ?? null,
+      const deps = await invoke<DependencyStatus>('check_dependencies', {
+        runner: resolveRunner(server, selectedRunner),
       })
 
       if (deps.audioWarning) {
@@ -82,7 +42,7 @@ export function LaunchButton({ server }: Props) {
       await invoke('launch_game', {
         server: {
           ...server,
-          runner: server.runner ?? selectedRunner ?? null,
+          runner: resolveRunner(server, selectedRunner),
         },
       })
       setStatus('running')
@@ -94,11 +54,7 @@ export function LaunchButton({ server }: Props) {
     }
   }
 
-  const isDisabled =
-    !server ||
-    status === 'setting-up' ||
-    status === 'launching' ||
-    status === 'running'
+  const isDisabled = !server || isLauncherBusy(status)
 
   const labels: Record<typeof status, string> = {
     idle: 'JUGAR',

@@ -1,15 +1,12 @@
 import { invoke } from '@tauri-apps/api/core'
-import { useLauncherStore } from '../launcher/launcher.store'
+import { useLauncherStore, isLauncherBusy } from '../launcher/launcher.store'
 import { useLogsStore } from '../logs/logs.store'
 
 export function PrefixResetButton() {
   const { status, setStatus, setProgress, setError } = useLauncherStore()
   const addLog = useLogsStore((s) => s.addLog)
 
-  const isBusy =
-    status === 'setting-up' ||
-    status === 'launching' ||
-    status === 'running'
+  const isBusy = isLauncherBusy(status)
 
   const handleReset = async () => {
     const confirmed = window.confirm(

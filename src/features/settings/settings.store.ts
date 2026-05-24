@@ -1,23 +1,21 @@
 import { invoke } from '@tauri-apps/api/core'
 import { create } from 'zustand'
-
-export interface RunnerInfo {
-  id: string
-  name: string
-  path: string
-}
+import type { DependencyStatus, RunnerInfo, AudioStatus } from '../../shared/types'
 
 interface SettingsState {
   runners: RunnerInfo[]
   selectedRunner: string
+  audioStatus: AudioStatus | null
   loadSettings: () => Promise<void>
   loadRunners: () => Promise<void>
+  loadAudioStatus: (runner: string) => Promise<void>
   setRunner: (path: string) => Promise<void>
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   runners: [],
   selectedRunner: '',
+  audioStatus: null,
 
   loadSettings: async () => {
     const settings = await invoke<{ defaultRunner: string }>('load_settings')
@@ -33,7 +31,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const fallback = runners[0]
 
     if (!current && fallback) {
-      set({ selectedRunner: preferred?.path ?? fallback.path })
+      const runner = preferred?.path ?? fallback.path
+      set({ selectedRunner: runner })
+      await get().loadAudioStatus(runner)
       return
     }
 
@@ -41,11 +41,33 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     if (current === '/usr/bin/wine' && preferred) {
       set({ selectedRunner: preferred.path })
       await invoke('save_settings', { settings: { defaultRunner: preferred.path } })
+      await get().loadAudioStatus(preferred.path)
+      return
+    }
+
+    if (current) {
+      await get().loadAudioStatus(current)
+    }
+  },
+
+  loadAudioStatus: async (runner: string) => {
+    try {
+      const deps = await invoke<DependencyStatus>('check_dependencies', { runner })
+      set({
+        audioStatus: {
+          audioOk: deps.audioOk,
+          audioDriver: deps.audioDriver,
+          audioWarning: deps.audioWarning,
+        },
+      })
+    } catch {
+      set({ audioStatus: null })
     }
   },
 
   setRunner: async (path) => {
     set({ selectedRunner: path })
     await invoke('save_settings', { settings: { defaultRunner: path } })
+    await get().loadAudioStatus(path)
   },
 }))

@@ -19,3 +19,7 @@ export const useLauncherStore = create<LauncherState>((set) => ({
   setProgress: (setupProgress) => set({ setupProgress }),
   setError: (error) => set({ error }),
 }))
+
+export function isLauncherBusy(status: LaunchStatus): boolean {
+  return status === 'setting-up' || status === 'launching' || status === 'running'
+}

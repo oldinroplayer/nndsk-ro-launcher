@@ -1,24 +1,19 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::path::Path;
 use tauri::{AppHandle, Emitter};
-use tokio::io::AsyncBufReadExt;
 use tokio::process::Command;
 
 use crate::commands::audio;
 use crate::commands::check::get_prefix_path;
 use crate::commands::gecko::install_gecko;
-use crate::commands::runner::resolve_runner;
+use crate::commands::runners::resolve_runner;
 use crate::commands::settings::load_settings;
+use crate::utils::{drain_and_log, LogEvent};
 
 #[derive(Serialize, Clone)]
 struct ProgressEvent {
     step: String,
     percent: u32,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-struct LogEvent {
-    line: String,
 }
 
 #[tauri::command]
@@ -163,35 +158,4 @@ async fn run_cmd(
     drain_and_log(app, &mut child).await;
     child.wait().await.map_err(|e| e.to_string())?;
     Ok(())
-}
-
-async fn drain_and_log(app: &AppHandle, child: &mut tokio::process::Child) {
-    let stdout = child.stdout.take();
-    let stderr = child.stderr.take();
-
-    let app1 = app.clone();
-    let h1 = tokio::spawn(async move {
-        if let Some(out) = stdout {
-            let mut lines = tokio::io::BufReader::new(out).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                if !line.contains("fixme:") && !line.contains("libEGL warning") {
-                    let _ = app1.emit("ro-launcher://log", LogEvent { line });
-                }
-            }
-        }
-    });
-
-    let app2 = app.clone();
-    let h2 = tokio::spawn(async move {
-        if let Some(err) = stderr {
-            let mut lines = tokio::io::BufReader::new(err).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                if !line.contains("fixme:") && !line.contains("libEGL warning") {
-                    let _ = app2.emit("ro-launcher://log", LogEvent { line });
-                }
-            }
-        }
-    });
-
-    let _ = tokio::join!(h1, h2);
 }

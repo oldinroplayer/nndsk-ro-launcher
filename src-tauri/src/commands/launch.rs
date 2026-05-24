@@ -7,16 +7,12 @@ use std::sync::Arc;
 
 use crate::commands::audio::{self, mmdevapi_recovery_hint};
 use crate::commands::check::get_prefix_path;
-use crate::commands::runner::resolve_runner;
-use crate::commands::settings::load_settings;
+use crate::commands::runners::resolve_runner;
+use crate::commands::settings::effective_runner;
 use crate::commands::setup::ensure_gecko;
 use crate::models::server::ServerConfig;
+use crate::utils::{apply_runner_env, should_log_line, work_dir_from_exe, LogEvent};
 use crate::GameState;
-
-#[derive(Serialize, Clone)]
-struct LogEvent {
-    line: String,
-}
 
 #[derive(Serialize, Clone)]
 struct ExitEvent {
@@ -41,20 +37,14 @@ pub async fn launch_game(
         );
     }
 
-    let runner_path = match server.runner.clone() {
-        Some(path) if !path.is_empty() => path,
-        _ => load_settings().await?.default_runner,
-    };
+    let runner_path = effective_runner(server.runner.clone()).await?;
     let resolved = resolve_runner(&runner_path)?;
 
     ensure_gecko(&app, &prefix_path).await?;
     audio::ensure_audio_driver(Some(&app), &prefix_path, &resolved).await?;
 
     let exe_path = server.executable_path.clone();
-    let work_dir = std::path::Path::new(&exe_path)
-        .parent()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_default();
+    let work_dir = work_dir_from_exe(&exe_path);
 
     let mut cmd = Command::new(&resolved.wine_bin);
     cmd.arg(&exe_path)
@@ -68,13 +58,7 @@ pub async fn launch_game(
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
 
-    if let Some(proton_libs) = &resolved.ld_library_path {
-        let ld_library_path = match std::env::var("LD_LIBRARY_PATH") {
-            Ok(existing) if !existing.is_empty() => format!("{proton_libs}:{existing}"),
-            _ => proton_libs.clone(),
-        };
-        cmd.env("LD_LIBRARY_PATH", ld_library_path);
-    }
+    apply_runner_env(&mut cmd, resolved.ld_library_path.as_deref());
 
     let mut child = cmd
         .spawn()
@@ -87,6 +71,7 @@ pub async fn launch_game(
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
 
+    // stdout: filter fixme: only (game output is useful)
     let app1 = app.clone();
     let h1 = tokio::spawn(async move {
         if let Some(out) = stdout {
@@ -99,6 +84,7 @@ pub async fn launch_game(
         }
     });
 
+    // stderr: surface audio errors and meaningful Wine messages
     let app2 = app.clone();
     let h2 = tokio::spawn(async move {
         if let Some(err) = stderr {
@@ -109,7 +95,7 @@ pub async fn launch_game(
                         line: mmdevapi_recovery_hint().to_string(),
                     });
                 }
-                if line.contains("err:") || (!line.contains("fixme:") && !line.is_empty()) {
+                if line.contains("err:") || (should_log_line(&line) && !line.is_empty()) {
                     let _ = app2.emit("ro-launcher://log", LogEvent { line });
                 }
             }

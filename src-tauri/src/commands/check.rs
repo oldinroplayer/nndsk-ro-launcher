@@ -2,8 +2,9 @@ use serde::Serialize;
 use std::path::Path;
 
 use crate::commands::audio::{self, AudioDriver};
-use crate::commands::runner::resolve_runner;
-use crate::commands::settings::load_settings;
+use crate::commands::runners::resolve_runner;
+use crate::commands::settings::effective_runner;
+use crate::utils::app_data_dir;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,10 +27,7 @@ pub async fn check_dependencies(runner: Option<String>) -> Result<DependencyStat
     let dxvk = check_dxvk_installed(&prefix_path);
     let prefix_configured = check_prefix_configured(&prefix_path);
 
-    let runner_path = match runner {
-        Some(path) if !path.is_empty() => path,
-        _ => load_settings().await?.default_runner,
-    };
+    let runner_path = effective_runner(runner).await?;
     let resolved = resolve_runner(&runner_path)?;
 
     let current_driver = if prefix_configured {
@@ -56,8 +54,7 @@ pub async fn check_dependencies(runner: Option<String>) -> Result<DependencyStat
 }
 
 pub fn get_prefix_path() -> String {
-    let home = std::env::var("HOME").unwrap_or_default();
-    format!("{}/.local/share/ro-launcher/prefix", home)
+    app_data_dir().join("prefix").to_string_lossy().to_string()
 }
 
 pub fn check_gecko_installed(prefix_path: &str) -> bool {

@@ -3,7 +3,8 @@ use std::path::Path;
 use tauri::{AppHandle, Emitter};
 use tokio::process::Command;
 
-use crate::commands::runner::ResolvedRunner;
+use crate::commands::runners::ResolvedRunner;
+use crate::utils::{apply_runner_env, LogEvent};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -56,11 +57,6 @@ pub struct EnsureAudioResult {
     pub configured: bool,
     pub driver: AudioDriver,
     pub message: Option<String>,
-}
-
-#[derive(Clone, Serialize)]
-struct LogEvent {
-    line: String,
 }
 
 pub fn lib32_pulse_available() -> bool {
@@ -121,16 +117,6 @@ pub fn mmdevapi_recovery_hint() -> &'static str {
      Si persiste: sudo pacman -S lib32-libpulse lib32-alsa-lib"
 }
 
-fn apply_runner_env(cmd: &mut Command, runner: &ResolvedRunner) {
-    if let Some(proton_libs) = &runner.ld_library_path {
-        let ld_library_path = match std::env::var("LD_LIBRARY_PATH") {
-            Ok(existing) if !existing.is_empty() => format!("{proton_libs}:{existing}"),
-            _ => proton_libs.clone(),
-        };
-        cmd.env("LD_LIBRARY_PATH", ld_library_path);
-    }
-}
-
 fn parse_driver_from_reg_output(output: &str) -> Option<AudioDriver> {
     for line in output.lines() {
         let trimmed = line.trim();
@@ -164,7 +150,7 @@ pub async fn read_current_driver(
     .stdout(std::process::Stdio::piped())
     .stderr(std::process::Stdio::null());
 
-    apply_runner_env(&mut cmd, runner);
+    apply_runner_env(&mut cmd, runner.ld_library_path.as_deref());
 
     let output = cmd.output().await.ok()?;
     if !output.status.success() {
@@ -201,7 +187,7 @@ async fn set_audio_driver(
     .stdout(std::process::Stdio::null())
     .stderr(std::process::Stdio::piped());
 
-    apply_runner_env(&mut cmd, runner);
+    apply_runner_env(&mut cmd, runner.ld_library_path.as_deref());
 
     let output = cmd
         .output()

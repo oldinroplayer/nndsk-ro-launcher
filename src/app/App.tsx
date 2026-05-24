@@ -8,9 +8,12 @@ import { RunnerSelector } from '../features/settings/RunnerSelector'
 import { AudioStatusBanner } from '../features/settings/AudioStatusBanner'
 import { PrefixResetButton } from '../features/settings/PrefixResetButton'
 import { useServersStore } from '../features/servers/servers.store'
+import { useLauncherEvents } from '../features/launcher/useLauncherEvents'
 
 export function App() {
   const { getSelected, loadServers } = useServersStore()
+
+  useLauncherEvents()
 
   useEffect(() => {
     loadServers()

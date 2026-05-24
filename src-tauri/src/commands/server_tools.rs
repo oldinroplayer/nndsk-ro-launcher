@@ -4,8 +4,9 @@ use tauri::{AppHandle, Manager};
 use tokio::process::Command;
 
 use crate::commands::check::get_prefix_path;
-use crate::commands::runner::resolve_runner;
-use crate::commands::settings::load_settings;
+use crate::commands::runners::resolve_runner;
+use crate::commands::settings::effective_runner;
+use crate::utils::{apply_runner_env, work_dir_from_exe};
 use crate::models::server::ServerConfig;
 
 const DGVOODOO_TEMPLATE_FILES: &[&str] = &[
@@ -126,16 +127,13 @@ pub async fn launch_server_tool(
         .clone()
         .unwrap_or_else(get_prefix_path);
 
-    let runner_path = match runner.or_else(|| server.runner.clone()) {
-        Some(path) if !path.is_empty() => path,
-        _ => load_settings().await?.default_runner,
-    };
+    let runner_path = effective_runner(runner.or_else(|| server.runner.clone())).await?;
     let resolved = resolve_runner(&runner_path)?;
 
-    let work_dir = Path::new(&exe_path)
-        .parent()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|| game_dir_from_server(&server).unwrap_or_default());
+    let work_dir = {
+        let d = work_dir_from_exe(&exe_path);
+        if d.is_empty() { game_dir_from_server(&server).unwrap_or_default() } else { d }
+    };
 
     let mut cmd = Command::new(&resolved.wine_bin);
     cmd.arg(&exe_path)
@@ -149,13 +147,7 @@ pub async fn launch_server_tool(
         cmd.env("WINEDLLOVERRIDES", "d3dimm=n,b;ddraw=n,b");
     }
 
-    if let Some(proton_libs) = &resolved.ld_library_path {
-        let ld_library_path = match std::env::var("LD_LIBRARY_PATH") {
-            Ok(existing) if !existing.is_empty() => format!("{proton_libs}:{existing}"),
-            _ => proton_libs.clone(),
-        };
-        cmd.env("LD_LIBRARY_PATH", ld_library_path);
-    }
+    apply_runner_env(&mut cmd, resolved.ld_library_path.as_deref());
 
     cmd.spawn()
         .map_err(|e| format!("Error al abrir la herramienta: {e}"))?;
@@ -164,10 +156,12 @@ pub async fn launch_server_tool(
 }
 
 fn game_dir_from_server(server: &ServerConfig) -> Result<String, String> {
-    let exe = Path::new(&server.executable_path);
-    exe.parent()
-        .map(|p| p.to_string_lossy().to_string())
-        .ok_or_else(|| "Ruta del ejecutable inválida".to_string())
+    let d = work_dir_from_exe(&server.executable_path);
+    if d.is_empty() {
+        Err("Ruta del ejecutable inválida".to_string())
+    } else {
+        Ok(d)
+    }
 }
 
 fn scan_game_dir(

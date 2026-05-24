@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { create } from 'zustand'
-import type { ServerConfig } from './servers.config'
+import type { ServerConfig } from './servers.types'
 
 interface ServersState {
   servers: ServerConfig[]

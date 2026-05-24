@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+use crate::utils::{app_data_dir, read_json, write_json};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -21,29 +23,22 @@ impl Default for AppSettings {
 }
 
 fn settings_path() -> std::path::PathBuf {
-    let home = std::env::var("HOME").unwrap_or_default();
-    std::path::PathBuf::from(format!(
-        "{}/.local/share/ro-launcher/settings.json",
-        home
-    ))
+    app_data_dir().join("settings.json")
+}
+
+pub async fn effective_runner(override_path: Option<String>) -> Result<String, String> {
+    match override_path {
+        Some(path) if !path.is_empty() => Ok(path),
+        _ => Ok(load_settings().await?.default_runner),
+    }
 }
 
 #[tauri::command]
 pub async fn load_settings() -> Result<AppSettings, String> {
-    let path = settings_path();
-    if !path.exists() {
-        return Ok(AppSettings::default());
-    }
-    let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    serde_json::from_str(&content).map_err(|e| e.to_string())
+    read_json(&settings_path())
 }
 
 #[tauri::command]
 pub async fn save_settings(settings: AppSettings) -> Result<(), String> {
-    let path = settings_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-    std::fs::write(&path, json).map_err(|e| e.to_string())
+    write_json(&settings_path(), &settings)
 }
