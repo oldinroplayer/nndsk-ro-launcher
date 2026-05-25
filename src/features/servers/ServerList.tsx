@@ -4,8 +4,14 @@ import { useServersStore } from './servers.store'
 import { Panel } from '../../shared/ui/Panel'
 
 export function ServerList() {
-  const { servers, selectedId, selectServer, removeServer } = useServersStore()
+  const { servers, selectedId, loading, error, selectServer, removeServer, loadServers, clearError } =
+    useServersStore()
   const [showAdd, setShowAdd] = useState(false)
+
+  const handleOpenAdd = () => {
+    clearError()
+    setShowAdd(true)
+  }
 
   return (
     <>
@@ -14,7 +20,7 @@ export function ServerList() {
         className="shrink-0"
         action={
           <button
-            onClick={() => setShowAdd(true)}
+            onClick={handleOpenAdd}
             className="text-zinc-500 hover:text-amber-400 transition-colors text-base leading-none w-5 h-5 flex items-center justify-center rounded hover:bg-zinc-800"
             title="Agregar servidor"
           >
@@ -22,7 +28,24 @@ export function ServerList() {
           </button>
         }
       >
-        {servers.length === 0 && (
+        {loading && (
+          <p className="text-zinc-600 text-sm py-1 text-center">Cargando servidores...</p>
+        )}
+
+        {error && !loading && (
+          <div className="flex flex-col gap-2 mb-2 px-1">
+            <p className="text-xs text-red-400 leading-relaxed">{error}</p>
+            <button
+              type="button"
+              onClick={() => void loadServers()}
+              className="text-xs text-zinc-500 hover:text-amber-400 transition-colors self-start"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+
+        {!loading && servers.length === 0 && !error && (
           <p className="text-zinc-600 text-sm py-1 text-center">
             Sin servidores — agrega uno con +
           </p>
@@ -51,7 +74,7 @@ export function ServerList() {
               <button
                 onClick={(e) => {
                   e.preventDefault()
-                  removeServer(server.id)
+                  void removeServer(server.id)
                 }}
                 className="text-zinc-700 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-sm leading-none w-5 h-5 flex items-center justify-center rounded hover:bg-zinc-800"
                 title="Eliminar"

@@ -3,7 +3,7 @@ use std::path::Path;
 use tauri::AppHandle;
 use tokio::process::Command;
 
-use crate::commands::runners::ResolvedRunner;
+use crate::utils::ResolvedRunner;
 use crate::utils::{apply_prefix_env, apply_runner_env, emit_log_opt};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -15,11 +15,18 @@ pub enum AudioDriver {
 }
 
 impl AudioDriver {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            AudioDriver::Pulse => "pulse",
+            AudioDriver::Alsa => "alsa",
+            AudioDriver::None => "none",
+        }
+    }
+
     pub fn as_reg_value(self) -> Option<&'static str> {
         match self {
-            AudioDriver::Pulse => Some("pulse"),
-            AudioDriver::Alsa => Some("alsa"),
             AudioDriver::None => None,
+            driver => Some(driver.as_str()),
         }
     }
 
@@ -28,14 +35,6 @@ impl AudioDriver {
             AudioDriver::Pulse => "PulseAudio",
             AudioDriver::Alsa => "ALSA",
             AudioDriver::None => "ninguno",
-        }
-    }
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            AudioDriver::Pulse => "pulse",
-            AudioDriver::Alsa => "alsa",
-            AudioDriver::None => "none",
         }
     }
 }
@@ -107,6 +106,31 @@ pub fn detect_audio_backends(current_driver: Option<AudioDriver>) -> AudioBacken
     }
 }
 
+/// Campos de audio para [`DependencyStatus`]: ok, driver serializado y aviso opcional.
+pub async fn dependency_audio_fields(
+    prefix_path: &str,
+    prefix_configured: bool,
+    runner: &ResolvedRunner,
+) -> (bool, String, Option<String>) {
+    let current_driver = if prefix_configured {
+        read_current_driver(prefix_path, runner).await
+    } else {
+        None
+    };
+
+    let audio_status = detect_audio_backends(current_driver);
+    let audio_driver = audio_status
+        .current_driver
+        .or(Some(audio_status.recommended))
+        .unwrap_or(AudioDriver::None);
+
+    (
+        audio_status.ok,
+        audio_driver.as_str().to_string(),
+        audio_status.warning,
+    )
+}
+
 pub fn is_mmdevapi_audio_error(line: &str) -> bool {
     line.contains("err:mmdevapi")
         && (line.contains("load_driver") || line.contains("DllGetClassObject"))
@@ -133,25 +157,38 @@ fn parse_driver_from_reg_output(output: &str) -> Option<AudioDriver> {
     None
 }
 
+fn wine_reg_command(
+    runner: &ResolvedRunner,
+    prefix_path: &str,
+    args: &[&str],
+) -> Command {
+    let mut cmd = Command::new(&runner.wine_bin);
+    cmd.args(args);
+    apply_prefix_env(&mut cmd, prefix_path);
+    apply_runner_env(&mut cmd, runner.ld_library_path.as_deref());
+    cmd
+}
+
 pub async fn read_current_driver(
     prefix_path: &str,
     runner: &ResolvedRunner,
 ) -> Option<AudioDriver> {
-    let mut cmd = Command::new(&runner.wine_bin);
-    cmd.args([
-        "reg",
-        "query",
-        r"HKCU\Software\Wine\Drivers",
-        "/v",
-        "Audio",
-    ])
+    let output = wine_reg_command(
+        runner,
+        prefix_path,
+        &[
+            "reg",
+            "query",
+            r"HKCU\Software\Wine\Drivers",
+            "/v",
+            "Audio",
+        ],
+    )
     .stdout(std::process::Stdio::piped())
-    .stderr(std::process::Stdio::null());
-
-    apply_prefix_env(&mut cmd, prefix_path);
-    apply_runner_env(&mut cmd, runner.ld_library_path.as_deref());
-
-    let output = cmd.output().await.ok()?;
+    .stderr(std::process::Stdio::null())
+    .output()
+    .await
+    .ok()?;
     if !output.status.success() {
         return None;
     }
@@ -168,29 +205,27 @@ async fn set_audio_driver(
         .as_reg_value()
         .ok_or_else(|| "No hay driver de audio disponible".to_string())?;
 
-    let mut cmd = Command::new(&runner.wine_bin);
-    cmd.args([
-        "reg",
-        "add",
-        r"HKCU\Software\Wine\Drivers",
-        "/v",
-        "Audio",
-        "/t",
-        "REG_SZ",
-        "/d",
-        value,
-        "/f",
-    ])
+    let output = wine_reg_command(
+        runner,
+        prefix_path,
+        &[
+            "reg",
+            "add",
+            r"HKCU\Software\Wine\Drivers",
+            "/v",
+            "Audio",
+            "/t",
+            "REG_SZ",
+            "/d",
+            value,
+            "/f",
+        ],
+    )
     .stdout(std::process::Stdio::null())
-    .stderr(std::process::Stdio::piped());
-
-    apply_prefix_env(&mut cmd, prefix_path);
-    apply_runner_env(&mut cmd, runner.ld_library_path.as_deref());
-
-    let output = cmd
-        .output()
-        .await
-        .map_err(|e| format!("Error al configurar audio: {e}"))?;
+    .stderr(std::process::Stdio::piped())
+    .output()
+    .await
+    .map_err(|e| format!("Error al configurar audio: {e}"))?;
 
     if output.status.success() {
         Ok(())

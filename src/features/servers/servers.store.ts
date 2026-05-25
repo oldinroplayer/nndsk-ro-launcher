@@ -1,15 +1,20 @@
-import { invoke } from '@tauri-apps/api/core'
 import { create } from 'zustand'
+import { api } from '../../shared/api'
+import { runSafely } from '../../shared/async'
+import { persistWithError } from '../../shared/store/persist'
 import type { ServerConfig } from '../../shared/types'
+import { findSelectedServer, firstServerId, nextSelectedId } from './servers.logic'
 
 interface ServersState {
   servers: ServerConfig[]
   selectedId: string | null
   loading: boolean
+  error: string | null
   loadServers: () => Promise<void>
   selectServer: (id: string) => void
   addServer: (server: ServerConfig) => Promise<void>
   removeServer: (id: string) => Promise<void>
+  clearError: () => void
   getSelected: () => ServerConfig | null
 }
 
@@ -17,32 +22,49 @@ export const useServersStore = create<ServersState>((set, get) => ({
   servers: [],
   selectedId: null,
   loading: true,
+  error: null,
 
   loadServers: async () => {
-    const servers = await invoke<ServerConfig[]>('list_servers')
-    set({ servers, selectedId: servers[0]?.id ?? null, loading: false })
+    set({ loading: true, error: null })
+    const result = await runSafely(() => api.listServers())
+    if (result.ok) {
+      set({
+        servers: result.value,
+        selectedId: firstServerId(result.value),
+        loading: false,
+      })
+      return
+    }
+    set({ loading: false, error: result.error })
   },
 
   selectServer: (id) => set({ selectedId: id }),
 
   addServer: async (server) => {
     const updated = [...get().servers, server]
-    await invoke('save_servers', { servers: updated })
-    set({ servers: updated, selectedId: server.id })
+    const ok = await persistWithError(
+      (error) => set({ error }),
+      () => api.saveServers(updated),
+      { rethrow: true },
+    )
+    if (ok) set({ servers: updated, selectedId: server.id })
   },
 
   removeServer: async (id) => {
     const { servers, selectedId } = get()
     const updated = servers.filter((s) => s.id !== id)
-    await invoke('save_servers', { servers: updated })
+    const ok = await persistWithError(
+      (error) => set({ error }),
+      () => api.saveServers(updated),
+    )
+    if (!ok) return
     set({
       servers: updated,
-      selectedId: selectedId === id ? (updated[0]?.id ?? null) : selectedId,
+      selectedId: nextSelectedId(selectedId, id, updated),
     })
   },
 
-  getSelected: () => {
-    const { servers, selectedId } = get()
-    return servers.find((s) => s.id === selectedId) ?? null
-  },
+  clearError: () => set({ error: null }),
+
+  getSelected: () => findSelectedServer(get().servers, get().selectedId),
 }))

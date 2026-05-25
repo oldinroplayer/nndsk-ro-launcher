@@ -1,9 +1,5 @@
 use crate::models::server::ServerConfig;
-use crate::utils::{app_data_dir, read_json, write_json};
-
-fn servers_path() -> std::path::PathBuf {
-    app_data_dir().join("servers.json")
-}
+use crate::utils::{read_json, servers_path, write_json};
 
 #[tauri::command]
 pub async fn list_servers() -> Result<Vec<ServerConfig>, String> {

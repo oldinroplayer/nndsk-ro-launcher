@@ -1,42 +1,45 @@
-import { listen } from '@tauri-apps/api/event'
-import { useEffect } from 'react'
-import type { ProgressPayload } from '../../shared/types'
+import type {
+  ExitEventPayload,
+  LogEventPayload,
+  ProgressPayload,
+} from '../../shared/types'
 import { useLauncherStore } from './launcher.store'
 import { useLogsStore } from '../logs/logs.store'
 import { LAUNCHER_EVENTS } from '../../shared/constants'
+import { useTauriEvent } from '../../shared/hooks/useTauriEvent'
 
 export function useLauncherEvents() {
-  const { setStatus, setProgress, setError } = useLauncherStore()
+  const setStatus = useLauncherStore((s) => s.setStatus)
+  const setProgress = useLauncherStore((s) => s.setProgress)
+  const setError = useLauncherStore((s) => s.setError)
   const addLog = useLogsStore((s) => s.addLog)
 
-  useEffect(() => {
-    const cleanups: Array<() => void> = []
+  useTauriEvent<LogEventPayload>(
+    LAUNCHER_EVENTS.LOG,
+    (payload) => addLog(payload.line),
+    [addLog],
+  )
 
-    listen<{ line: string }>(LAUNCHER_EVENTS.LOG, (e) =>
-      addLog(e.payload.line),
-    ).then((fn) => cleanups.push(fn))
+  useTauriEvent<ProgressPayload>(
+    LAUNCHER_EVENTS.PROGRESS,
+    (payload) => setProgress(payload),
+    [setProgress],
+  )
 
-    listen<ProgressPayload>(LAUNCHER_EVENTS.PROGRESS, (e) =>
-      setProgress(e.payload),
-    ).then((fn) => cleanups.push(fn))
-
-    listen<{ code: number }>(LAUNCHER_EVENTS.GAME_EXIT, (e) => {
-      const code = e.payload.code
+  useTauriEvent<ExitEventPayload>(
+    LAUNCHER_EVENTS.GAME_EXIT,
+    (payload) => {
+      const { code } = payload
       if (code !== 0) {
-        addLog(`El juego cerró inesperadamente (código ${code})`)
-        setError(`El juego cerró inesperadamente (código ${code})`)
+        const msg = `El juego cerró inesperadamente (código ${code})`
+        addLog(msg)
+        setError(msg)
         setStatus('error')
       } else {
         addLog('Juego cerrado')
         setStatus('idle')
       }
-    }).then((fn) => cleanups.push(fn))
-
-    listen<{ message: string }>(LAUNCHER_EVENTS.ERROR, (e) => {
-      setError(e.payload.message)
-      setStatus('error')
-    }).then((fn) => cleanups.push(fn))
-
-    return () => cleanups.forEach((fn) => fn())
-  }, [])
+    },
+    [addLog, setError, setStatus],
+  )
 }

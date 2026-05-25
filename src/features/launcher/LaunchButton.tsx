@@ -1,56 +1,11 @@
-import { invoke } from '@tauri-apps/api/core'
-import type { DependencyStatus, ServerConfig } from '../../shared/types'
-import { useLauncherStore, isLauncherBusy } from './launcher.store'
-import { useLogsStore } from '../logs/logs.store'
-import { useSettingsStore } from '../settings/settings.store'
-import { resolveRunner, withResolvedRunner } from '../../shared/resolveRunner'
+import { useLaunchGame } from './useLaunchGame'
+import { useSelectedServer } from '../servers/useSelectedServer'
 
-interface Props {
-  server: ServerConfig | null
-}
+export function LaunchButton() {
+  const server = useSelectedServer()
+  const { status, setupProgress, error, isBusy, handleLaunch, handleStop } = useLaunchGame(server)
 
-export function LaunchButton({ server }: Props) {
-  const { status, setupProgress, error, setStatus, setProgress, setError } =
-    useLauncherStore()
-  const addLog = useLogsStore((s) => s.addLog)
-  const selectedRunner = useSettingsStore((s) => s.selectedRunner)
-
-  const handleLaunch = async () => {
-    if (!server) return
-    if (status === 'error') setError(null)
-
-    try {
-      const deps = await invoke<DependencyStatus>('check_dependencies', {
-        runner: resolveRunner(server, selectedRunner),
-      })
-
-      if (deps.audioWarning) {
-        addLog(deps.audioWarning)
-      }
-
-      if (!deps.prefixConfigured) {
-        setStatus('setting-up')
-        addLog('Configurando entorno por primera vez...')
-        await invoke('setup_prefix')
-        setProgress(null)
-      }
-
-      setStatus('launching')
-      addLog(`Lanzando ${server.name} con ${selectedRunner || 'wine'}...`)
-
-      await invoke('launch_game', {
-        server: withResolvedRunner(server, selectedRunner),
-      })
-      setStatus('running')
-    } catch (err) {
-      const msg = String(err)
-      setError(msg)
-      setStatus('error')
-      addLog(`Error: ${msg}`)
-    }
-  }
-
-  const isDisabled = !server || isLauncherBusy(status)
+  const isDisabled = !server || isBusy
 
   const labels: Record<typeof status, string> = {
     idle: 'JUGAR',
@@ -82,7 +37,7 @@ export function LaunchButton({ server }: Props) {
       </button>
       {status === 'running' && (
         <button
-          onClick={() => invoke('stop_game')}
+          onClick={handleStop}
           className="w-full py-2 rounded-xl text-xs text-zinc-500 hover:text-red-400 border border-zinc-800/80
             hover:border-red-500/30 hover:bg-red-500/5 transition-colors"
         >

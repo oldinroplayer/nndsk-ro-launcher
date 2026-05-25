@@ -1,14 +1,9 @@
-import { useEffect } from 'react'
 import { useSettingsStore } from './settings.store'
 import { Panel } from '../../shared/ui/Panel'
 import { DarkSelect } from '../../shared/ui/DarkSelect'
 
 export function RunnerSelector() {
-  const { runners, selectedRunner, loadSettings, loadRunners, setRunner } = useSettingsStore()
-
-  useEffect(() => {
-    loadSettings().then(loadRunners)
-  }, [])
+  const { runners, selectedRunner, setRunner } = useSettingsStore()
 
   if (runners.length === 0) return null
 

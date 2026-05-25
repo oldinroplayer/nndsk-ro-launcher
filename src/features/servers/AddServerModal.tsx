@@ -1,28 +1,26 @@
 import { open } from '@tauri-apps/plugin-dialog'
 import { useState } from 'react'
+import { useAsyncAction } from '../../shared/hooks/useAsyncAction'
+import { basename, nameFromExePath } from '../../shared/path'
 import { useServersStore } from './servers.store'
 
 interface Props {
   onClose: () => void
 }
 
-function nameFromExePath(path: string): string {
-  const file = path.split(/[/\\]/).pop() ?? ''
-  return file.replace(/\.exe$/i, '')
-}
+type ActionKey = 'pick' | 'save'
 
 export function AddServerModal({ onClose }: Props) {
   const addServer = useServersStore((s) => s.addServer)
   const [name, setName] = useState('')
   const [exePath, setExePath] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [picking, setPicking] = useState(false)
-  const [pickError, setPickError] = useState<string | null>(null)
+  const { error, run, isBusy } = useAsyncAction<ActionKey>()
+
+  const picking = isBusy('pick')
+  const saving = isBusy('save')
 
   const handlePickExe = async () => {
-    setPicking(true)
-    setPickError(null)
-    try {
+    await run('pick', async () => {
       const selected = await open({
         multiple: false,
         directory: false,
@@ -36,19 +34,14 @@ export function AddServerModal({ onClose }: Props) {
       if (!name.trim()) {
         setName(nameFromExePath(selected))
       }
-    } catch (err) {
-      setPickError(String(err))
-    } finally {
-      setPicking(false)
-    }
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim() || !exePath.trim()) return
 
-    setSaving(true)
-    try {
+    const ok = await run('save', async () => {
       const id = `server-${Date.now().toString(36)}`
       await addServer({
         id,
@@ -56,12 +49,11 @@ export function AddServerModal({ onClose }: Props) {
         executablePath: exePath.trim(),
       })
       onClose()
-    } finally {
-      setSaving(false)
-    }
+    })
+    if (!ok) return
   }
 
-  const selectedFile = exePath ? (exePath.split(/[/\\]/).pop() ?? exePath) : null
+  const selectedFile = exePath ? basename(exePath) : null
 
   return (
     <div
@@ -95,7 +87,7 @@ export function AddServerModal({ onClose }: Props) {
                 {exePath}
               </p>
             )}
-            {pickError && <p className="text-xs text-red-400">{pickError}</p>}
+            {error && <p className="text-xs text-red-400">{error}</p>}
           </div>
 
           <div className="flex flex-col gap-1.5">

@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter};
 
-use crate::commands::audio;
-use crate::commands::gecko::install_gecko;
-use crate::commands::process::drain_game_output;
-use crate::commands::runners::resolve_effective_runner;
+use crate::utils::audio;
+use crate::utils::gecko::install_gecko;
+use crate::utils::process::drain_game_output;
+use crate::utils::resolve_effective_runner;
 use crate::models::server::ServerConfig;
 use crate::utils::{
     apply_game_env, effective_prefix, is_prefix_configured, pipe_output, wine_command,

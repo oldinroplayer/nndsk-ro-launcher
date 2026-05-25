@@ -3,6 +3,18 @@ export interface ProgressPayload {
   percent: number
 }
 
+export interface LogEventPayload {
+  line: string
+}
+
+export interface ExitEventPayload {
+  code: number
+}
+
+export interface AppSettings {
+  defaultRunner: string
+}
+
 export interface ServerConfig {
   id: string
   name: string
@@ -22,16 +34,15 @@ export interface DependencyStatus {
   audioWarning: string | null
 }
 
+export type AudioStatus = Pick<
+  DependencyStatus,
+  'audioOk' | 'audioDriver' | 'audioWarning'
+>
+
 export interface RunnerInfo {
   id: string
   name: string
   path: string
-}
-
-export interface AudioStatus {
-  audioOk: boolean
-  audioDriver: string
-  audioWarning: string | null
 }
 
 export interface ToolInfo {
@@ -69,4 +80,10 @@ export interface UninstallDgVoodooResult {
   status: ServerToolsStatus
 }
 
-export type ToolKind = 'opensetup' | 'patcher' | 'dgvoodoo'
+export const TOOL_KINDS = ['opensetup', 'patcher', 'dgvoodoo'] as const
+
+export type ToolKind = (typeof TOOL_KINDS)[number]
+
+export function isToolKind(value: string | null): value is ToolKind {
+  return TOOL_KINDS.includes(value as ToolKind)
+}

@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use tauri::AppHandle;
 use tokio::process::Command;
 
-use crate::commands::process::run_logged_command_ok;
+use crate::utils::process::run_logged_command_ok;
 use crate::utils::{app_data_dir, apply_prefix_env, emit_log};
 
 const GECKO_VERSION: &str = "2.47.4";

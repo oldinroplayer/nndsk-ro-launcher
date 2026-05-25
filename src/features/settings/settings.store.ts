@@ -1,11 +1,15 @@
-import { invoke } from '@tauri-apps/api/core'
 import { create } from 'zustand'
-import type { DependencyStatus, RunnerInfo, AudioStatus } from '../../shared/types'
+import { api } from '../../shared/api'
+import { runSafely } from '../../shared/async'
+import { audioFromDeps } from '../../shared/audio'
+import type { AudioStatus, RunnerInfo } from '../../shared/types'
+import { resolveRunnerAfterLoad } from './settings.logic'
 
 interface SettingsState {
   runners: RunnerInfo[]
   selectedRunner: string
   audioStatus: AudioStatus | null
+  init: () => Promise<void>
   loadSettings: () => Promise<void>
   loadRunners: () => Promise<void>
   loadAudioStatus: (runner: string) => Promise<void>
@@ -17,57 +21,47 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   selectedRunner: '',
   audioStatus: null,
 
+  init: async () => {
+    await get().loadSettings()
+    await get().loadRunners()
+  },
+
   loadSettings: async () => {
-    const settings = await invoke<{ defaultRunner: string }>('load_settings')
+    const settings = await api.loadSettings()
     set({ selectedRunner: settings.defaultRunner })
   },
 
   loadRunners: async () => {
-    const runners = await invoke<RunnerInfo[]>('list_runners')
+    const runners = await api.listRunners()
     set({ runners })
 
-    const current = get().selectedRunner
-    const preferred = runners.find((r) => r.id === 'proton-proton-cachyos-slr')
-    const fallback = runners[0]
+    const resolution = resolveRunnerAfterLoad(get().selectedRunner, runners)
+    if (!resolution) return
 
-    if (!current && fallback) {
-      const runner = preferred?.path ?? fallback.path
-      set({ selectedRunner: runner })
-      await get().loadAudioStatus(runner)
-      return
+    if (resolution.persist) {
+      const result = await runSafely(() =>
+        api.saveSettings({ defaultRunner: resolution.path }),
+      )
+      if (!result.ok) return
     }
 
-    // Migrate stale duplicate paths: prefer canonical proton if user had wine default
-    if (current === '/usr/bin/wine' && preferred) {
-      set({ selectedRunner: preferred.path })
-      await invoke('save_settings', { settings: { defaultRunner: preferred.path } })
-      await get().loadAudioStatus(preferred.path)
-      return
-    }
-
-    if (current) {
-      await get().loadAudioStatus(current)
-    }
+    set({ selectedRunner: resolution.path })
+    await get().loadAudioStatus(resolution.path)
   },
 
   loadAudioStatus: async (runner: string) => {
-    try {
-      const deps = await invoke<DependencyStatus>('check_dependencies', { runner })
-      set({
-        audioStatus: {
-          audioOk: deps.audioOk,
-          audioDriver: deps.audioDriver,
-          audioWarning: deps.audioWarning,
-        },
-      })
-    } catch {
-      set({ audioStatus: null })
-    }
+    const result = await runSafely(() => api.checkDependencies(runner))
+    set({ audioStatus: result.ok ? audioFromDeps(result.value) : null })
   },
 
   setRunner: async (path) => {
+    const previous = get().selectedRunner
+    const result = await runSafely(() => api.saveSettings({ defaultRunner: path }))
+    if (!result.ok) {
+      set({ selectedRunner: previous })
+      return
+    }
     set({ selectedRunner: path })
-    await invoke('save_settings', { settings: { defaultRunner: path } })
     await get().loadAudioStatus(path)
   },
 }))

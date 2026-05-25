@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
 import { AppHeader } from './AppHeader'
+import { useAppInit } from './useAppInit'
 import { ServerList } from '../features/servers/ServerList'
 import { ServerToolsPanel } from '../features/servers/ServerToolsPanel'
 import { LaunchButton } from '../features/launcher/LaunchButton'
@@ -7,19 +7,11 @@ import { LogPanel } from '../features/logs/LogPanel'
 import { RunnerSelector } from '../features/settings/RunnerSelector'
 import { AudioStatusBanner } from '../features/settings/AudioStatusBanner'
 import { PrefixResetButton } from '../features/settings/PrefixResetButton'
-import { useServersStore } from '../features/servers/servers.store'
 import { useLauncherEvents } from '../features/launcher/useLauncherEvents'
 
 export function App() {
-  const { getSelected, loadServers } = useServersStore()
-
+  useAppInit()
   useLauncherEvents()
-
-  useEffect(() => {
-    loadServers()
-  }, [])
-
-  const selected = getSelected()
 
   return (
     <div className="h-full flex flex-col">
@@ -33,13 +25,13 @@ export function App() {
           <AudioStatusBanner />
           <PrefixResetButton />
           <div className="mt-auto">
-            <LaunchButton server={selected} />
+            <LaunchButton />
           </div>
         </div>
 
         {/* Columna derecha: herramientas + logs */}
         <div className="flex flex-col gap-4 min-h-0">
-          <ServerToolsPanel server={selected} />
+          <ServerToolsPanel />
           <LogPanel />
         </div>
       </main>

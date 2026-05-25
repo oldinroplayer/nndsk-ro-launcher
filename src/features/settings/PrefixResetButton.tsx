@@ -1,16 +1,13 @@
-import { invoke } from '@tauri-apps/api/core'
-import { useLauncherStore, isLauncherBusy } from '../launcher/launcher.store'
-import { useLogsStore } from '../logs/logs.store'
+import { api } from '../../shared/api'
+import { DEFAULT_PREFIX_PATH } from '../../shared/constants'
+import { useLauncherTask } from '../launcher/useLauncherTask'
 
 export function PrefixResetButton() {
-  const { status, setStatus, setProgress, setError } = useLauncherStore()
-  const addLog = useLogsStore((s) => s.addLog)
-
-  const isBusy = isLauncherBusy(status)
+  const { setStatus, setProgress, setError, addLog, runTask, isBusy } = useLauncherTask()
 
   const handleReset = async () => {
     const confirmed = window.confirm(
-      '¿Rearmar el WINEPREFIX?\n\nSe borrará ~/.local/share/ro-launcher/prefix y se reinstalarán Gecko, DXVK, vcredist y d3dx9.',
+      `¿Rearmar el WINEPREFIX?\n\nSe borrará ${DEFAULT_PREFIX_PATH} y se reinstalarán Gecko, DXVK, vcredist y d3dx9.`,
     )
     if (!confirmed) return
 
@@ -18,19 +15,13 @@ export function PrefixResetButton() {
     setStatus('setting-up')
     addLog('Rearmando WINEPREFIX...')
 
-    try {
-      await invoke('stop_game')
-      await invoke('reset_prefix')
+    await runTask(async () => {
+      await api.stopGame()
+      await api.resetPrefix()
       setProgress(null)
       setStatus('idle')
       addLog('WINEPREFIX rearmado correctamente.')
-    } catch (err) {
-      const msg = String(err)
-      setError(msg)
-      setStatus('error')
-      setProgress(null)
-      addLog(`Error al rearmar prefix: ${msg}`)
-    }
+    }, 'Error al rearmar prefix')
   }
 
   return (

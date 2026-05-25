@@ -4,7 +4,6 @@ use tauri::{AppHandle, Emitter};
 pub const EVENT_LOG: &str = "ro-launcher://log";
 pub const EVENT_PROGRESS: &str = "ro-launcher://progress";
 pub const EVENT_GAME_EXIT: &str = "ro-launcher://game-exit";
-pub const EVENT_ERROR: &str = "ro-launcher://error";
 
 #[derive(Clone, Serialize)]
 pub struct LogEvent {
@@ -20,11 +19,6 @@ pub struct ProgressEvent {
 #[derive(Clone, Serialize)]
 pub struct ExitEvent {
     pub code: i32,
-}
-
-#[derive(Clone, Serialize)]
-pub struct ErrorEvent {
-    pub message: String,
 }
 
 pub fn emit_log(app: &AppHandle, line: impl Into<String>) -> Result<(), String> {
@@ -44,18 +38,6 @@ pub fn emit_progress(app: &AppHandle, step: &str, percent: u32) -> Result<(), St
         ProgressEvent {
             step: step.to_string(),
             percent,
-        },
-    )
-    .map_err(|e| e.to_string())
-}
-
-/// Reservado para errores asíncronos fuera del flujo invoke (p. ej. tareas en background).
-#[allow(dead_code)]
-pub fn emit_error(app: &AppHandle, message: impl Into<String>) -> Result<(), String> {
-    app.emit(
-        EVENT_ERROR,
-        ErrorEvent {
-            message: message.into(),
         },
     )
     .map_err(|e| e.to_string())

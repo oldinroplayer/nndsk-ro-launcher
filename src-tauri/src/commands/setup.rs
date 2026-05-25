@@ -2,20 +2,19 @@ use std::path::Path;
 use tauri::AppHandle;
 use tokio::process::Command;
 
-use crate::commands::audio;
-use crate::commands::gecko::install_gecko;
-use crate::commands::process::run_logged_command_ok;
-use crate::commands::runners::resolve_effective_runner;
-use crate::commands::settings::load_settings;
+use crate::utils::audio;
+use crate::utils::gecko::install_gecko;
+use crate::utils::process::run_logged_command_ok;
+use crate::utils::resolve_effective_runner;
 use crate::utils::{
-    apply_prefix_env, emit_log, emit_progress, prefix_path, write_prefix_marker,
+    apply_prefix_env, emit_log, emit_progress, kill_wineserver, prefix_path, write_prefix_marker,
+    WINETRICKS_BIN,
 };
 
 #[tauri::command]
 pub async fn setup_prefix(app: AppHandle) -> Result<(), String> {
     let prefix = prefix_path();
-    let runner_path = load_settings().await?.default_runner;
-    let resolved = resolve_effective_runner(Some(runner_path)).await?;
+    let resolved = resolve_effective_runner(None).await?;
 
     emit_progress(&app, "Creando WINEPREFIX...", 5)?;
     std::fs::create_dir_all(&prefix).map_err(|e| e.to_string())?;
@@ -68,19 +67,12 @@ pub async fn reset_prefix(app: AppHandle) -> Result<(), String> {
     setup_prefix(app).await
 }
 
-async fn kill_wineserver(prefix_path: &str) {
-    let mut cmd = Command::new("wineserver");
-    cmd.arg("-k");
-    apply_prefix_env(&mut cmd, prefix_path);
-    let _ = cmd.status().await;
-}
-
 async fn run_winetricks(
     app: &AppHandle,
     prefix_path: &str,
     packages: &[&str],
 ) -> Result<(), String> {
-    let mut cmd = Command::new("winetricks");
+    let mut cmd = Command::new(WINETRICKS_BIN);
     cmd.arg("-q");
     for pkg in packages {
         cmd.arg(pkg);

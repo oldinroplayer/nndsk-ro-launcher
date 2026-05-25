@@ -1,105 +1,27 @@
-import { invoke } from '@tauri-apps/api/core'
-import { useCallback, useEffect, useState } from 'react'
 import type {
-  InstallDgVoodooResult,
-  ServerConfig,
   ServerToolsStatus,
+  ToolInfo,
   ToolKind,
-  UninstallDgVoodooResult,
 } from '../../shared/types'
-import { useSettingsStore } from '../settings/settings.store'
 import { Panel } from '../../shared/ui/Panel'
 import { ToolRow } from './ToolRow'
-import { withResolvedRunner } from '../../shared/resolveRunner'
+import { useSelectedServer } from './useSelectedServer'
+import { useServerTools } from './useServerTools'
 
-interface Props {
-  server: ServerConfig | null
-}
-
-export function ServerToolsPanel({ server }: Props) {
-  const selectedRunner = useSettingsStore((s) => s.selectedRunner)
-  const [status, setStatus] = useState<ServerToolsStatus | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [opening, setOpening] = useState<ToolKind | null>(null)
-  const [installingDgVoodoo, setInstallingDgVoodoo] = useState(false)
-  const [uninstallingDgVoodoo, setUninstallingDgVoodoo] = useState(false)
-
-  const refresh = useCallback(async () => {
-    if (!server) {
-      setStatus(null)
-      setError(null)
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-    try {
-      const result = await invoke<ServerToolsStatus>('scan_server_tools', { server })
-      setStatus(result)
-    } catch (err) {
-      setStatus(null)
-      setError(String(err))
-    } finally {
-      setLoading(false)
-    }
-  }, [server])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
-
-  const handleInstallDgVoodoo = async () => {
-    if (!server) return
-
-    setInstallingDgVoodoo(true)
-    setError(null)
-    try {
-      const result = await invoke<InstallDgVoodooResult>('install_dgvoodoo', { server })
-      setStatus(result.status)
-    } catch (err) {
-      setError(String(err))
-    } finally {
-      setInstallingDgVoodoo(false)
-    }
-  }
-
-  const handleUninstallDgVoodoo = async () => {
-    if (!server) return
-
-    const confirmed = window.confirm(
-      '¿Desinstalar dgVoodoo de esta carpeta?\n\nSe eliminarán D3DImm.dll, DDraw.dll, dgVoodoo.conf y dgVoodooCpl.exe.',
-    )
-    if (!confirmed) return
-
-    setUninstallingDgVoodoo(true)
-    setError(null)
-    try {
-      const result = await invoke<UninstallDgVoodooResult>('uninstall_dgvoodoo', { server })
-      setStatus(result.status)
-    } catch (err) {
-      setError(String(err))
-    } finally {
-      setUninstallingDgVoodoo(false)
-    }
-  }
-
-  const handleOpen = async (tool: ToolKind) => {
-    if (!server) return
-
-    setOpening(tool)
-    setError(null)
-    try {
-      await invoke('launch_server_tool', {
-        server: withResolvedRunner(server, selectedRunner),
-        tool,
-      })
-    } catch (err) {
-      setError(String(err))
-    } finally {
-      setOpening(null)
-    }
-  }
+export function ServerToolsPanel() {
+  const server = useSelectedServer()
+  const {
+    status,
+    loading,
+    error,
+    opening,
+    installingDgVoodoo,
+    uninstallingDgVoodoo,
+    refresh,
+    handleInstallDgVoodoo,
+    handleUninstallDgVoodoo,
+    handleOpen,
+  } = useServerTools(server)
 
   if (!server) {
     return (
@@ -133,60 +55,104 @@ export function ServerToolsPanel({ server }: Props) {
       {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
 
       {!loading && status && (
-        <div>
-          <ToolRow
-            label="OpenSetup"
-            dotStatus={status.openSetup.found ? 'ok' : 'neutral'}
-            detail={status.openSetup.label ?? (status.openSetup.found ? 'Detectado' : 'No encontrado')}
-            onAction={status.openSetup.found ? () => handleOpen('opensetup') : undefined}
-            actionLabel="Abrir"
-            actionBusy={opening === 'opensetup'}
-            actionDisabled={!status.openSetup.found}
-          />
-          <ToolRow
-            label="Patcher"
-            dotStatus={status.patcher.found ? 'ok' : 'neutral'}
-            detail={status.patcher.label ?? (status.patcher.found ? 'Detectado' : 'No encontrado')}
-            onAction={status.patcher.found ? () => handleOpen('patcher') : undefined}
-            actionLabel="Abrir"
-            actionBusy={opening === 'patcher'}
-            actionDisabled={!status.patcher.found}
-          />
-          <ToolRow
-            label="dgVoodoo"
-            dotStatus={status.dgvoodoo.configured ? 'ok' : 'error'}
-            detail={
-              status.dgvoodoo.configured
-                ? 'D3DImm · DDraw · conf OK'
-                : 'No detectado'
-            }
-            warning={
-              !status.dgvoodoo.configured && status.dgvoodoo.issues.length > 0
-                ? status.dgvoodoo.issues.join(' · ')
-                : undefined
-            }
-            onAction={
-              dgvoodooNeedsInstall
-                ? handleInstallDgVoodoo
-                : status.dgvoodoo.cpl.found
-                  ? () => handleOpen('dgvoodoo')
-                  : undefined
-            }
-            actionLabel={dgvoodooNeedsInstall ? 'Instalar' : 'Configurar'}
-            actionBusy={dgvoodooNeedsInstall ? installingDgVoodoo : opening === 'dgvoodoo'}
-            onSecondary={
-              status.dgvoodoo.canUninstall ? handleUninstallDgVoodoo : undefined
-            }
-            secondaryLabel="Desinstalar"
-            secondaryBusy={uninstallingDgVoodoo}
-            secondaryDanger
-          />
-        </div>
+        <ToolsList
+          status={status}
+          dgvoodooNeedsInstall={!!dgvoodooNeedsInstall}
+          opening={opening}
+          installingDgVoodoo={installingDgVoodoo}
+          uninstallingDgVoodoo={uninstallingDgVoodoo}
+          onOpen={handleOpen}
+          onInstallDgVoodoo={handleInstallDgVoodoo}
+          onUninstallDgVoodoo={handleUninstallDgVoodoo}
+        />
       )}
 
       {loading && !status && (
         <p className="text-xs text-zinc-600 py-2 text-center">Escaneando carpeta...</p>
       )}
     </Panel>
+  )
+}
+
+interface ToolsListProps {
+  status: ServerToolsStatus
+  dgvoodooNeedsInstall: boolean
+  opening: ToolKind | null
+  installingDgVoodoo: boolean
+  uninstallingDgVoodoo: boolean
+  onOpen: (tool: ToolKind) => void
+  onInstallDgVoodoo: () => void
+  onUninstallDgVoodoo: () => void
+}
+
+interface SimpleToolConfig {
+  kind: ToolKind
+  label: string
+  tool: ToolInfo
+}
+
+const SIMPLE_TOOLS: (status: ServerToolsStatus) => SimpleToolConfig[] = (status) => [
+  { kind: 'opensetup', label: 'OpenSetup', tool: status.openSetup },
+  { kind: 'patcher', label: 'Patcher', tool: status.patcher },
+]
+
+function toolDetail(tool: ToolInfo): string {
+  return tool.label ?? (tool.found ? 'Detectado' : 'No encontrado')
+}
+
+function ToolsList({
+  status,
+  dgvoodooNeedsInstall,
+  opening,
+  installingDgVoodoo,
+  uninstallingDgVoodoo,
+  onOpen,
+  onInstallDgVoodoo,
+  onUninstallDgVoodoo,
+}: ToolsListProps) {
+  return (
+    <div>
+      {SIMPLE_TOOLS(status).map(({ kind, label, tool }) => (
+        <ToolRow
+          key={kind}
+          label={label}
+          dotStatus={tool.found ? 'ok' : 'neutral'}
+          detail={toolDetail(tool)}
+          onAction={tool.found ? () => onOpen(kind) : undefined}
+          actionLabel="Abrir"
+          actionBusy={opening === kind}
+          actionDisabled={!tool.found}
+        />
+      ))}
+      <ToolRow
+        label="dgVoodoo"
+        dotStatus={status.dgvoodoo.configured ? 'ok' : 'error'}
+        detail={
+          status.dgvoodoo.configured
+            ? 'D3DImm · DDraw · conf OK'
+            : 'No detectado'
+        }
+        warning={
+          !status.dgvoodoo.configured && status.dgvoodoo.issues.length > 0
+            ? status.dgvoodoo.issues.join(' · ')
+            : undefined
+        }
+        onAction={
+          dgvoodooNeedsInstall
+            ? onInstallDgVoodoo
+            : status.dgvoodoo.cpl.found
+              ? () => onOpen('dgvoodoo')
+              : undefined
+        }
+        actionLabel={dgvoodooNeedsInstall ? 'Instalar' : 'Configurar'}
+        actionBusy={dgvoodooNeedsInstall ? installingDgVoodoo : opening === 'dgvoodoo'}
+        onSecondary={
+          status.dgvoodoo.canUninstall ? onUninstallDgVoodoo : undefined
+        }
+        secondaryLabel="Desinstalar"
+        secondaryBusy={uninstallingDgVoodoo}
+        secondaryDanger
+      />
+    </div>
   )
 }

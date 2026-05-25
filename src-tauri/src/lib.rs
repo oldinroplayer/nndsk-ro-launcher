@@ -11,8 +11,7 @@ use commands::{
     servers::{list_servers, save_servers},
     server_tools::{install_dgvoodoo, launch_server_tool, scan_server_tools, uninstall_dgvoodoo},
     settings::{load_settings, save_settings},
-    setup::setup_prefix,
-    setup::reset_prefix,
+    setup::{reset_prefix, setup_prefix},
 };
 
 pub struct GameState {

@@ -28,9 +28,9 @@ pub fn apply_game_env(cmd: &mut Command) {
         .env("WINEDLLOVERRIDES", "d3dimm=n,b;ddraw=n,b");
 }
 
-pub fn apply_tool_env(cmd: &mut Command, tool: &str) {
+pub fn apply_tool_env(cmd: &mut Command, needs_dgvoodoo_overrides: bool) {
     cmd.env("DXVK_ASYNC", "1").env("WINE_LARGE_ADDRESS_AWARE", "1");
-    if tool == "dgvoodoo" || tool == "opensetup" {
+    if needs_dgvoodoo_overrides {
         cmd.env("WINEDLLOVERRIDES", "d3dimm=n,b;ddraw=n,b");
     }
 }
@@ -49,4 +49,11 @@ pub fn apply_runner_env(cmd: &mut Command, ld_library_path: Option<&str>) {
         };
         cmd.env("LD_LIBRARY_PATH", lib_path);
     }
+}
+
+pub async fn kill_wineserver(prefix_path: &str) {
+    let mut cmd = Command::new("wineserver");
+    cmd.arg("-k");
+    apply_prefix_env(&mut cmd, prefix_path);
+    let _ = cmd.status().await;
 }
