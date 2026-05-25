@@ -27,6 +27,9 @@ npm run tauri:build
 # Frontend only (no Tauri window)
 npm run dev
 
+# Frontend tests
+npm test
+
 # Type-check
 npx tsc --noEmit
 ```
@@ -124,7 +127,7 @@ src/
 cargo test --workspace    # ro-tools-core, ro-tools-linux, src-tauri
 ```
 
-Frontend: `npx tsc --noEmit` (sin framework de tests configurado aún).
+Frontend: `npm test` (vitest) — tests exist in `servers/servers.logic.test.ts` and `settings/settings.logic.test.ts`.
 
 ---
 
