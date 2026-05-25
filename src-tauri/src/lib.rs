@@ -24,6 +24,13 @@ use commands::{
 use state::GameState;
 use tools::{autopot::AutopotHandle, input::YdotoolDaemon};
 
+#[tauri::command]
+async fn show_main_window(app: tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -34,6 +41,7 @@ pub fn run() {
             ydotoold: Arc::new(YdotoolDaemon::new()),
         })
         .invoke_handler(tauri::generate_handler![
+            show_main_window,
             check_dependencies,
             launch_game,
             stop_game,

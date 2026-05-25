@@ -15,7 +15,9 @@
         "title": "RO-Launcher",
         "width": 1280,
         "height": 720,
-        "resizable": false
+        "resizable": false,
+        "backgroundColor": "#09090b",
+        "visible": false
       }
     ],
     "security": {
