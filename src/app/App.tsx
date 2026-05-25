@@ -1,5 +1,6 @@
 import { AppHeader } from './AppHeader'
 import { useAppInit } from './useAppInit'
+import { LoadingScreen } from './LoadingScreen'
 import { ServerList } from '../features/servers/ServerList'
 import { ServerToolsPanel } from '../features/servers/ServerToolsPanel'
 import { LaunchButton } from '../features/launcher/LaunchButton'
@@ -11,8 +12,10 @@ import { PrefixResetButton } from '../features/settings/PrefixResetButton'
 import { useLauncherEvents } from '../features/launcher/useLauncherEvents'
 
 export function App() {
-  useAppInit()
+  const { ready } = useAppInit()
   useLauncherEvents()
+
+  if (!ready) return <LoadingScreen />
 
   return (
     <div className="h-full flex flex-col">
@@ -26,9 +29,7 @@ export function App() {
             <SystemStatusBanner />
             <PrefixResetButton />
           </div>
-          <div className="shrink-0 pt-3">
-            <LaunchButton />
-          </div>
+          <LaunchButton />
         </div>
 
         <div className="flex flex-col gap-3 min-h-0">
