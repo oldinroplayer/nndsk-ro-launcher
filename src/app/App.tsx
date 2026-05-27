@@ -5,10 +5,10 @@ import { ServerList } from '../features/servers/ServerList'
 import { ServerToolsPanel } from '../features/servers/ServerToolsPanel'
 import { LaunchButton } from '../features/launcher/LaunchButton'
 import { AutopotPanel } from '../features/autopot/AutopotPanel'
+import { SpammerPanel } from '../features/spammer/SpammerPanel'
 import { UnifiedLogPanel } from '../features/logs/LogPanels'
 import { RunnerSelector } from '../features/settings/RunnerSelector'
-import { SystemStatusBanner } from '../features/settings/SystemStatusBanner'
-import { PrefixResetButton } from '../features/settings/PrefixResetButton'
+import { AdvancedSettings } from '../features/settings/AdvancedSettings'
 import { useLauncherEvents } from '../features/launcher/useLauncherEvents'
 
 export function App() {
@@ -21,20 +21,24 @@ export function App() {
     <div className="h-full flex flex-col">
       <AppHeader />
 
-      <main className="flex-1 min-h-0 grid grid-cols-[minmax(0,340px)_1fr] gap-4 p-4">
+      <main className="flex-1 min-h-0 grid grid-cols-[minmax(0,300px)_1fr] gap-3 p-3">
         <div className="flex flex-col min-h-0">
-          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3 pr-0.5">
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2.5 pr-0.5">
             <ServerList />
             <RunnerSelector />
-            <SystemStatusBanner />
-            <PrefixResetButton />
+            <AdvancedSettings />
           </div>
           <LaunchButton />
         </div>
 
-        <div className="flex flex-col gap-3 min-h-0">
+        <div className="flex flex-col gap-2.5 min-h-0">
           <ServerToolsPanel />
-          <AutopotPanel />
+
+          <div className="grid grid-cols-2 gap-2.5 shrink-0 items-stretch">
+            <AutopotPanel />
+            <SpammerPanel />
+          </div>
+
           <UnifiedLogPanel />
         </div>
       </main>

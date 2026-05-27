@@ -9,4 +9,23 @@ pub trait MemoryReader: Send + Sync {
 
 pub trait InputWriter: Send + Sync {
     fn press_key(&self, key: &str) -> Result<(), ToolsError>;
+
+    /// Solo key-down (sin release). No-op por defecto — impls que lo necesitan deben sobreescribir.
+    fn key_down(&self, key: &str) -> Result<(), ToolsError> {
+        Err(ToolsError::Input {
+            key: key.to_string(),
+            message: "key_down no implementado".into(),
+        })
+    }
+
+    /// Solo key-up (sin press). No-op por defecto — solo lo necesita el spammer con grab.
+    fn key_up(&self, key: &str) -> Result<(), ToolsError> {
+        let _ = key;
+        Ok(())
+    }
+
+    /// Left mouse click (down + up). No-op by default for adapters that only emit keys.
+    fn click_left(&self) -> Result<(), ToolsError> {
+        Ok(())
+    }
 }

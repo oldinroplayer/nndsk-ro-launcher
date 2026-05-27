@@ -9,8 +9,8 @@
     "test": "vitest run",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:dev": "GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:dev": "cargo build -p ro-inputd && GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 tauri dev",
+    "tauri:build": "cargo build -p ro-inputd --release && tauri build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

@@ -10,3 +10,4 @@ pub mod runners;
 pub mod server_tools;
 pub mod servers;
 pub mod settings;
+pub mod spammer;

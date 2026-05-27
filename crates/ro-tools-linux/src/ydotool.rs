@@ -2,8 +2,9 @@ use ro_tools_core::{InputWriter, ToolsError};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
-use std::thread;
-use std::time::Duration;
+
+/// Inter-key delay for autopot full press (ms).
+const INPUT_EVENT_DELAY_MS: &str = "2";
 
 /// Ruta del socket que usa ydotoold (XDG_RUNTIME_DIR o /run/user/$UID).
 pub fn ydotool_socket_path() -> String {
@@ -114,16 +115,58 @@ impl InputWriter for YdotoolInput {
             message: "tecla no soportada".into(),
         })?;
 
-        self.run(&["key", &format!("{code}:1")]).map_err(|e| ToolsError::Input {
+        self.run(&[
+            "key",
+            "-d",
+            INPUT_EVENT_DELAY_MS,
+            &format!("{code}:1"),
+            &format!("{code}:0"),
+        ])
+        .map_err(|e| ToolsError::Input {
             key: key.to_string(),
             message: e.to_string(),
-        })?;
-        thread::sleep(Duration::from_millis(15));
-        self.run(&["key", &format!("{code}:0")]).map_err(|e| ToolsError::Input {
+        })
+    }
+
+    fn click_left(&self) -> Result<(), ToolsError> {
+        // 4RTools: LBUTTONDOWN → 1ms → LBUTTONUP (separado, no 0xC0 atómico)
+        self.run(&["click", "-d", "1", "0x40"])
+            .map_err(|e| ToolsError::Input {
+                key: "click".into(),
+                message: e.to_string(),
+            })?;
+        std::thread::sleep(std::time::Duration::from_millis(1));
+        self.run(&["click", "-d", "1", "0x80"])
+            .map_err(|e| ToolsError::Input {
+                key: "click".into(),
+                message: e.to_string(),
+            })
+    }
+
+    fn key_down(&self, key: &str) -> Result<(), ToolsError> {
+        let code = key_to_code(key).ok_or_else(|| ToolsError::Input {
             key: key.to_string(),
-            message: e.to_string(),
+            message: "tecla no soportada".into(),
         })?;
-        Ok(())
+
+        self.run(&["key", "-d", "1", &format!("{code}:1")])
+            .map_err(|e| ToolsError::Input {
+                key: key.to_string(),
+                message: e.to_string(),
+            })
+    }
+
+    fn key_up(&self, key: &str) -> Result<(), ToolsError> {
+        let code = key_to_code(key).ok_or_else(|| ToolsError::Input {
+            key: key.to_string(),
+            message: "tecla no soportada".into(),
+        })?;
+
+        self.run(&["key", "-d", "1", &format!("{code}:0")])
+            .map_err(|e| ToolsError::Input {
+                key: key.to_string(),
+                message: e.to_string(),
+            })
     }
 }
 
@@ -157,6 +200,39 @@ impl InputWriter for LazyYdotoolInput {
         }
         guard.as_ref().unwrap().press_key(key)
     }
+
+    fn click_left(&self) -> Result<(), ToolsError> {
+        let mut guard = self
+            .inner
+            .lock()
+            .map_err(|_| ToolsError::Other("ydotool lock poisoned".into()))?;
+        if guard.is_none() {
+            *guard = Some(YdotoolInput::new()?);
+        }
+        guard.as_ref().unwrap().click_left()
+    }
+
+    fn key_down(&self, key: &str) -> Result<(), ToolsError> {
+        let mut guard = self
+            .inner
+            .lock()
+            .map_err(|_| ToolsError::Other("ydotool lock poisoned".into()))?;
+        if guard.is_none() {
+            *guard = Some(YdotoolInput::new()?);
+        }
+        guard.as_ref().unwrap().key_down(key)
+    }
+
+    fn key_up(&self, key: &str) -> Result<(), ToolsError> {
+        let mut guard = self
+            .inner
+            .lock()
+            .map_err(|_| ToolsError::Other("ydotool lock poisoned".into()))?;
+        if guard.is_none() {
+            *guard = Some(YdotoolInput::new()?);
+        }
+        guard.as_ref().unwrap().key_up(key)
+    }
 }
 
 fn key_to_code(key: &str) -> Option<u16> {
@@ -170,6 +246,9 @@ fn key_to_code(key: &str) -> Option<u16> {
         "F7" => Some(65),
         "F8" => Some(66),
         "F9" => Some(67),
+        "F10" => Some(68),
+        "F11" => Some(87),
+        "F12" => Some(88),
         "1" => Some(2),
         "2" => Some(3),
         "3" => Some(4),
@@ -181,5 +260,37 @@ fn key_to_code(key: &str) -> Option<u16> {
         "9" => Some(10),
         "0" => Some(11),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn maps_f1_through_f12() {
+        let expected = [
+            ("F1", 59),
+            ("F2", 60),
+            ("F3", 61),
+            ("F4", 62),
+            ("F5", 63),
+            ("F6", 64),
+            ("F7", 65),
+            ("F8", 66),
+            ("F9", 67),
+            ("F10", 68),
+            ("F11", 87),
+            ("F12", 88),
+        ];
+        for (label, code) in expected {
+            assert_eq!(key_to_code(label), Some(code), "{label}");
+            assert_eq!(
+                key_to_code(&label.to_lowercase()),
+                Some(code),
+                "{label} lower"
+            );
+        }
+        assert!(key_to_code("F13").is_none());
     }
 }

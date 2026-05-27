@@ -22,6 +22,7 @@ pub async fn start_autopot(
     start_session(
         app,
         &state.autopot,
+        state.input.clone(),
         Arc::clone(&state.ydotoold),
         launcher_pid,
         server,

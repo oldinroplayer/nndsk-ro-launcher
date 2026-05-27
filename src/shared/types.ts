@@ -38,6 +38,21 @@ export interface AutopotStatusEvent {
   error?: string | null
 }
 
+export interface SpammerConfig {
+  enabled: boolean
+  delayMs: number
+}
+
+export interface SpammerStatusEvent {
+  active: boolean
+  armed: boolean
+  spamming: boolean
+  key: string
+  delayMs: number
+  cycleCount: number
+  error?: string | null
+}
+
 export interface ServerConfig {
   id: string
   name: string
@@ -46,6 +61,7 @@ export interface ServerConfig {
   winePrefix?: string
   runner?: string
   autopot?: AutopotConfig
+  spammer?: SpammerConfig
 }
 
 export interface DependencyStatus {

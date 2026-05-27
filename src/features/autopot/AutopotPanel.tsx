@@ -1,138 +1,221 @@
+import { useEffect, useRef, useState } from 'react'
 import { DEFAULT_AUTOPOT_CONFIG, POT_KEYS } from '../../shared/constants'
-import { Panel } from '../../shared/ui/Panel'
+import { Panel, type PanelTone } from '../../shared/ui/Panel'
 import { DarkSelect } from '../../shared/ui/DarkSelect'
+import { ToggleSwitch } from '../../shared/ui/ToggleSwitch'
 import { useSelectedServer } from '../servers/useSelectedServer'
 import { statPercent } from './autopot.logic'
 import { useAutopot } from './useAutopot'
 
 function StatBar({
-  label,
   cur,
   max,
   tone,
+  flash,
 }: {
-  label: string
   cur: number
   max: number
   tone: 'red' | 'blue'
+  flash?: boolean
 }) {
+  const empty = max <= 0
   const pct = statPercent(cur, max)
   const gradient =
     tone === 'red'
       ? 'from-red-600 to-red-400'
       : 'from-sky-600 to-sky-400'
 
+  const flashClass = flash
+    ? tone === 'red'
+      ? 'animate-stat-flash-red'
+      : 'animate-stat-flash-blue'
+    : ''
+
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-[11px] text-zinc-500">
-        <span>{label}</span>
+    <div className={`space-y-0.5 ${flashClass}`}>
+      <div className={`flex justify-between text-[10px] ${empty ? 'text-zinc-700' : 'text-zinc-500'}`}>
+        <span>{tone === 'red' ? 'HP' : 'SP'}</span>
         <span>
-          {cur.toLocaleString()} / {max.toLocaleString()} ({pct}%)
+          {empty
+            ? '— / —'
+            : `${cur.toLocaleString()} / ${max.toLocaleString()} (${pct}%)`}
         </span>
       </div>
-      <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-        <div
-          className={`h-full bg-gradient-to-r ${gradient} transition-all duration-300`}
-          style={{ width: `${pct}%` }}
-        />
+      <div className={`h-2 rounded-full overflow-hidden ${empty ? 'bg-zinc-900/80 border border-dashed border-zinc-800/80' : 'bg-zinc-800'}`}>
+        {!empty && (
+          <div
+            className={`h-full bg-gradient-to-r ${gradient} transition-all duration-300`}
+            style={{ width: `${pct}%` }}
+          />
+        )}
       </div>
     </div>
   )
 }
 
+function resolveTone(
+  available: boolean,
+  enabled: boolean,
+  active: boolean,
+  hasError: boolean,
+): PanelTone {
+  if (hasError) return 'danger'
+  if (!available) return 'idle'
+  if (enabled && active) return 'success'
+  return 'neutral'
+}
+
 export function AutopotPanel() {
   const server = useSelectedServer()
   const { config, status, busy, isRunning, error, setEnabled, updateField } = useAutopot(server)
+  const available = isRunning && !!server
+  const hasCharacter = available && !!status.characterName
+  const [flashHp, setFlashHp] = useState(false)
+  const [flashSp, setFlashSp] = useState(false)
+  const prevHp = useRef(0)
+  const prevSp = useRef(0)
+
   const showProbeHint =
+    available &&
     config.enabled &&
     status.active &&
     status.maxHp === 0 &&
     !error
 
-  if (!isRunning || !server) return null
+  useEffect(() => {
+    if (!available || status.maxHp <= 0) {
+      prevHp.current = 0
+      return
+    }
+    if (status.curHp > prevHp.current && prevHp.current > 0) {
+      setFlashHp(true)
+      const t = setTimeout(() => setFlashHp(false), 450)
+      prevHp.current = status.curHp
+      return () => clearTimeout(t)
+    }
+    prevHp.current = status.curHp
+  }, [available, status.curHp, status.maxHp])
 
-  const toggleClass = config.enabled
-    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-    : 'bg-zinc-800 text-zinc-400 border border-zinc-700/80 hover:text-zinc-200'
+  useEffect(() => {
+    if (!available || status.maxSp <= 0) {
+      prevSp.current = 0
+      return
+    }
+    if (status.curSp > prevSp.current && prevSp.current > 0) {
+      setFlashSp(true)
+      const t = setTimeout(() => setFlashSp(false), 450)
+      prevSp.current = status.curSp
+      return () => clearTimeout(t)
+    }
+    prevSp.current = status.curSp
+  }, [available, status.curSp, status.maxSp])
+
+  const displayName = available
+    ? status.characterName || server!.name
+    : server?.name ?? 'Sin servidor'
+
+  const statusText = !server
+    ? 'Selecciona un servidor'
+    : !isRunning
+      ? 'Inicia el juego'
+      : status.active
+        ? 'Activo'
+        : 'Inactivo'
+
+  const hpCur = available && (status.active || config.enabled) ? status.curHp : 0
+  const hpMax = available && (status.active || config.enabled) ? status.maxHp : 0
+  const spCur = available && (status.active || config.enabled) ? status.curSp : 0
+  const spMax = available && (status.active || config.enabled) ? status.maxSp : 0
+
+  const tone = resolveTone(available, config.enabled, status.active, !!error)
 
   return (
-    <Panel title="AutoPot" className="shrink-0 max-h-[280px] overflow-y-auto">
-      <div className="space-y-2.5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs text-zinc-300">
-              {status.characterName || server.name}
+    <Panel title="AutoPot" compact tone={tone} className="h-full">
+      <div className="space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p
+              className={`truncate ${
+                hasCharacter
+                  ? 'text-base font-bold text-amber-100/95 tracking-tight'
+                  : 'text-sm font-semibold text-zinc-100'
+              }`}
+            >
+              {displayName}
             </p>
-            <p className="text-[11px] text-zinc-600 truncate">
-              {status.active ? 'Activo' : 'Inactivo'}
-            </p>
+            <p className="text-[10px] text-zinc-600">{statusText}</p>
           </div>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void setEnabled(!config.enabled)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 ${toggleClass}`}
-          >
-            {config.enabled ? 'ON' : 'OFF'}
-          </button>
-        </div>
-
-        <div className="grid grid-cols-[56px_1fr_56px] gap-2 items-center">
-          <span className="text-[11px] text-zinc-500 uppercase">HP</span>
-          <DarkSelect
-            value={config.hpKey}
-            onChange={(hpKey) => void updateField({ hpKey })}
-            options={POT_KEYS.map((key) => ({ value: key, label: key }))}
-          />
-          <input
-            type="number"
-            min={1}
-            max={99}
-            value={config.hpPercent}
-            onChange={(e) =>
-              void updateField({
-                hpPercent: Number(e.target.value) || DEFAULT_AUTOPOT_CONFIG.hpPercent,
-              })
-            }
-            className="w-full bg-zinc-950/60 border border-zinc-700/80 rounded-lg px-2 py-1.5 text-xs text-zinc-200"
+          <ToggleSwitch
+            checked={config.enabled && available}
+            disabled={!available || busy}
+            onChange={(enabled) => void setEnabled(enabled)}
+            tone="emerald"
           />
         </div>
 
-        <div className="grid grid-cols-[56px_1fr_56px] gap-2 items-center">
-          <span className="text-[11px] text-zinc-500 uppercase">SP</span>
-          <DarkSelect
-            value={config.spKey}
-            onChange={(spKey) => void updateField({ spKey })}
-            options={POT_KEYS.map((key) => ({ value: key, label: key }))}
-          />
-          <input
-            type="number"
-            min={1}
-            max={99}
-            value={config.spPercent}
-            onChange={(e) =>
-              void updateField({
-                spPercent: Number(e.target.value) || DEFAULT_AUTOPOT_CONFIG.spPercent,
-              })
-            }
-            className="w-full bg-zinc-950/60 border border-zinc-700/80 rounded-lg px-2 py-1.5 text-xs text-zinc-200"
-          />
+        <div className="space-y-1.5 rounded-lg bg-zinc-950/40 border border-zinc-800/60 px-2.5 py-2">
+          <StatBar cur={hpCur} max={hpMax} tone="red" flash={flashHp} />
+          <StatBar cur={spCur} max={spMax} tone="blue" flash={flashSp} />
         </div>
 
-        {(status.active || config.enabled) && (
-          <div className="space-y-2 pt-1">
-            <StatBar label="HP" cur={status.curHp} max={status.maxHp} tone="red" />
-            <StatBar label="SP" cur={status.curSp} max={status.maxSp} tone="blue" />
+        <div className="grid grid-cols-2 gap-1.5">
+          <div className="space-y-1">
+            <span className="text-[10px] text-zinc-600 uppercase tracking-wide">HP</span>
+            <div className="flex gap-1">
+              <DarkSelect
+                value={config.hpKey}
+                disabled={!server}
+                onChange={(hpKey) => void updateField({ hpKey })}
+                options={POT_KEYS.map((key) => ({ value: key, label: key }))}
+              />
+              <input
+                type="number"
+                min={1}
+                max={99}
+                disabled={!server}
+                value={config.hpPercent}
+                onChange={(e) =>
+                  void updateField({
+                    hpPercent: Number(e.target.value) || DEFAULT_AUTOPOT_CONFIG.hpPercent,
+                  })
+                }
+                className="w-11 bg-zinc-950/60 border border-zinc-700/80 rounded-md px-1.5 py-1 text-[11px] text-zinc-200 text-center disabled:opacity-50"
+              />
+            </div>
           </div>
-        )}
+          <div className="space-y-1">
+            <span className="text-[10px] text-zinc-600 uppercase tracking-wide">SP</span>
+            <div className="flex gap-1">
+              <DarkSelect
+                value={config.spKey}
+                disabled={!server}
+                onChange={(spKey) => void updateField({ spKey })}
+                options={POT_KEYS.map((key) => ({ value: key, label: key }))}
+              />
+              <input
+                type="number"
+                min={1}
+                max={99}
+                disabled={!server}
+                value={config.spPercent}
+                onChange={(e) =>
+                  void updateField({
+                    spPercent: Number(e.target.value) || DEFAULT_AUTOPOT_CONFIG.spPercent,
+                  })
+                }
+                className="w-11 bg-zinc-950/60 border border-zinc-700/80 rounded-md px-1.5 py-1 text-[11px] text-zinc-200 text-center disabled:opacity-50"
+              />
+            </div>
+          </div>
+        </div>
 
-        {error && (
-          <p className="text-[11px] text-red-400 leading-relaxed">{error}</p>
+        {error && available && (
+          <p className="text-[10px] text-red-400 leading-snug">{error}</p>
         )}
 
         {showProbeHint && (
-          <p className="text-[11px] text-amber-500/90 leading-relaxed">
-            HP/SP en cero — revisa la pestaña Tools en Logs (PID, probe, ptrace).
+          <p className="text-[10px] text-amber-500/90 leading-snug">
+            HP/SP en cero — revisa Tools en Logs.
           </p>
         )}
       </div>

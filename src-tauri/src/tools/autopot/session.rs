@@ -8,7 +8,7 @@ use tokio::time::sleep;
 
 use crate::models::server::ServerConfig;
 use crate::tools::autopot::{load_profiles, resolve_profile, AutopotHandle};
-use crate::tools::input::{ensure_ydotoold, YdotoolDaemon};
+use crate::tools::input::{ensure_ydotoold, InputGateway, YdotoolDaemon};
 use crate::utils::{effective_prefix, emit_tool_log_opt};
 
 const PID_RESOLVE_ATTEMPTS: u32 = 20;
@@ -18,6 +18,7 @@ const PID_RESOLVE_DELAY_MS: u64 = 500;
 pub async fn start_session(
     app: AppHandle,
     handle: &AutopotHandle,
+    input: InputGateway,
     ydotoold: Arc<YdotoolDaemon>,
     launcher_pid: u32,
     server: ServerConfig,
@@ -58,13 +59,7 @@ pub async fn start_session(
     ensure_ydotoold(Some(&app), ydotoold.as_ref()).await?;
 
     handle
-        .start(
-            app,
-            pid,
-            server.autopot.clone(),
-            profile,
-            ydotoold,
-        )
+        .start(app, pid, server.autopot.clone(), profile, input, ydotoold)
         .await
 }
 

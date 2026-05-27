@@ -1,0 +1,82 @@
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use ro_tools_core::SpammerConfig;
+use tauri::AppHandle;
+use tokio::sync::watch;
+use tokio::time::sleep;
+
+use crate::models::spammer::SpammerStatusEvent;
+use crate::tools::input::{InputGateway, YdotoolDaemon};
+use crate::utils::emit_tool_log_opt;
+
+pub struct SpammerHandle {
+    stop_tx: Arc<Mutex<Option<watch::Sender<bool>>>>,
+    status: Arc<Mutex<SpammerStatusEvent>>,
+}
+
+impl Clone for SpammerHandle {
+    fn clone(&self) -> Self {
+        Self {
+            stop_tx: Arc::clone(&self.stop_tx),
+            status: Arc::clone(&self.status),
+        }
+    }
+}
+
+impl SpammerHandle {
+    pub fn new() -> Self {
+        Self {
+            stop_tx: Arc::new(Mutex::new(None)),
+            status: Arc::new(Mutex::new(SpammerStatusEvent::default())),
+        }
+    }
+
+    pub fn status(&self) -> SpammerStatusEvent {
+        self.status.lock().unwrap().clone()
+    }
+
+    pub async fn stop(&self) {
+        if let Some(tx) = self.stop_tx.lock().unwrap().take() {
+            let _ = tx.send(true);
+        }
+        let mut status = self.status.lock().unwrap();
+        status.active = false;
+        status.armed = false;
+        status.spamming = false;
+    }
+
+    pub async fn start(
+        &self,
+        app: AppHandle,
+        input: InputGateway,
+        config: SpammerConfig,
+        ydotoold: Arc<YdotoolDaemon>,
+    ) -> Result<(), String> {
+        self.stop().await;
+
+        let mut config = config.clamped();
+        config.enabled = true;
+        let (stop_tx, stop_rx) = watch::channel(false);
+        *self.stop_tx.lock().unwrap() = Some(stop_tx);
+
+        let status_arc = Arc::clone(&self.status);
+        let writer = input.writer();
+
+        emit_tool_log_opt(
+            Some(&app),
+            format!(
+                "[Spammer] Standby F1 + click delay={}ms — mantén F1 en el juego",
+                config.delay_ms
+            ),
+        );
+
+        tokio::spawn(async move {
+            super::loop_runner::run(app, writer, config, stop_rx, status_arc, input, ydotoold)
+                .await;
+        });
+
+        sleep(Duration::from_millis(50)).await;
+        Ok(())
+    }
+}

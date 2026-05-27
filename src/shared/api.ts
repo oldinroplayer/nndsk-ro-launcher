@@ -8,6 +8,8 @@ import type {
   RunnerInfo,
   ServerConfig,
   ServerToolsStatus,
+  SpammerConfig,
+  SpammerStatusEvent,
   ToolKind,
   UninstallDgVoodooResult,
 } from './types'
@@ -58,4 +60,14 @@ export const api = {
     invoke<void>('update_autopot_config', { config }),
 
   getAutopotStatus: () => invoke<AutopotStatusEvent>('get_autopot_status'),
+
+  startSpammer: (server: ServerConfig) =>
+    invoke<void>('start_spammer', { server }),
+
+  stopSpammer: () => invoke<void>('stop_spammer'),
+
+  updateSpammerConfig: (config: SpammerConfig) =>
+    invoke<void>('update_spammer_config', { config }),
+
+  getSpammerStatus: () => invoke<SpammerStatusEvent>('get_spammer_status'),
 } as const

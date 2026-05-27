@@ -20,3 +20,4 @@ pub mod launcher;
 pub mod prefix;
 pub mod runners;
 pub mod server_tools;
+pub mod spammer;

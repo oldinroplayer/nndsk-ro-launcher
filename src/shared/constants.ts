@@ -4,6 +4,7 @@ export const LAUNCHER_EVENTS = {
   PROGRESS: 'ro-launcher://progress',
   GAME_EXIT: 'ro-launcher://game-exit',
   AUTOPOT_STATUS: 'ro-launcher://autopot-status',
+  SPAMMER_STATUS: 'ro-launcher://spammer-status',
 } as const
 
 /** Carpeta del compatibility tool en Steam (debe coincidir con PROTON_CACHYOS_SLR en Rust). */
@@ -48,4 +49,9 @@ export const DEFAULT_AUTOPOT_CONFIG = {
   hpPercent: 80,
   spPercent: 50,
   delayMs: 100,
+} as const
+
+export const DEFAULT_SPAMMER_CONFIG = {
+  enabled: false,
+  delayMs: 10,
 } as const

@@ -5,6 +5,7 @@ use tauri::{AppHandle, Emitter};
 use crate::models::server::ServerConfig;
 use crate::state::GameState;
 use crate::tools::autopot::AutopotHandle;
+use crate::tools::spammer::SpammerHandle;
 use crate::utils::audio;
 use crate::utils::gecko::install_gecko;
 use crate::utils::process::drain_game_output;
@@ -17,14 +18,13 @@ pub async fn launch_game(
     app: AppHandle,
     pid_slot: &Arc<std::sync::Mutex<Option<u32>>>,
     autopot: &AutopotHandle,
+    spammer: &SpammerHandle,
     server: ServerConfig,
 ) -> Result<(), String> {
     let ctx = resolve_wine_context(server.wine_prefix.clone(), server.runner.clone()).await?;
 
     if !is_prefix_configured(&ctx.prefix) {
-        return Err(
-            "El WINEPREFIX no está configurado. Ejecuta el setup primero.".to_string(),
-        );
+        return Err("El WINEPREFIX no está configurado. Ejecuta el setup primero.".to_string());
     }
 
     install_gecko(&app, &ctx.prefix, &ctx.resolved.wine_bin).await?;
@@ -58,11 +58,16 @@ pub async fn launch_game(
 
     let pid_state = Arc::clone(pid_slot);
     let autopot = autopot.clone();
+    let spammer = spammer.clone();
     let app_for_exit = app.clone();
     tokio::spawn(async move {
         drain_game_output(&app_for_exit, &mut child).await;
         autopot.stop().await;
-        emit_tool_log_opt(Some(&app_for_exit), "[Launch] Juego terminado, AutoPot detenido");
+        spammer.stop().await;
+        emit_tool_log_opt(
+            Some(&app_for_exit),
+            "[Launch] Juego terminado, AutoPot y Spammer detenidos",
+        );
         let code = child
             .wait()
             .await
@@ -77,6 +82,7 @@ pub async fn launch_game(
 
 pub async fn stop_game(state: &GameState) -> Result<(), String> {
     state.autopot.stop().await;
+    state.spammer.stop().await;
     let pid = state.pid.lock().unwrap().take();
     if let Some(pid) = pid {
         let _ = tokio::process::Command::new("kill")

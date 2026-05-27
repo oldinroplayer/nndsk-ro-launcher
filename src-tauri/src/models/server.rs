@@ -1,4 +1,4 @@
-use ro_tools_core::AutopotConfig;
+use ro_tools_core::{AutopotConfig, SpammerConfig};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,4 +12,6 @@ pub struct ServerConfig {
     pub runner: Option<String>,
     #[serde(default)]
     pub autopot: AutopotConfig,
+    #[serde(default)]
+    pub spammer: SpammerConfig,
 }

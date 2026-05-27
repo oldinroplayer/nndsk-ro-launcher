@@ -1,26 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Panel } from '../../shared/ui/Panel'
-
-const PROBE_WARN = /\[AutoPot\].*Probe falló/i
-
-function isError(line: string): boolean {
-  if (PROBE_WARN.test(line)) return false
-  return /\berr:/i.test(line) || /^ERROR/i.test(line) || /ERROR|falló|FAIL/i.test(line)
-}
-
-function lineClass(line: string): string {
-  if (isError(line)) return 'text-red-400'
-  if (/\bwarn:/i.test(line) || PROBE_WARN.test(line)) {
-    return 'text-amber-400'
-  }
-  if (/Juego cerrado|Lanzando|Configurando|\[AutoPot\] Probe OK|\[Launch\]/i.test(line)) {
-    return 'text-emerald-400/80'
-  }
-  if (/\[AutoPot\]/i.test(line)) {
-    return 'text-sky-400/90'
-  }
-  return 'text-zinc-400'
-}
+import { isLogError, logLineClass } from './logs.logic'
 
 interface LogPanelViewProps {
   title: string
@@ -29,6 +9,7 @@ interface LogPanelViewProps {
   onClear: () => void
   className?: string
   leading?: ReactNode
+  compact?: boolean
 }
 
 export function LogPanelView({
@@ -38,6 +19,7 @@ export function LogPanelView({
   onClear,
   className = 'flex-1 min-h-0',
   leading,
+  compact = false,
 }: LogPanelViewProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const copyTimerRef = useRef<ReturnType<typeof setTimeout>>()
@@ -54,7 +36,7 @@ export function LogPanelView({
     bottomRef.current?.scrollIntoView({ behavior: 'auto' })
   }, [logs])
 
-  const errorLines = useMemo(() => logs.filter(isError), [logs])
+  const errorLines = useMemo(() => logs.filter(isLogError), [logs])
 
   function copyWithFeedback(text: string, setFlag: (value: boolean) => void) {
     navigator.clipboard.writeText(text)
@@ -76,6 +58,7 @@ export function LogPanelView({
       title={title}
       className={className}
       leading={leading}
+      compact={compact}
       action={
         logs.length > 0 ? (
           <div className="flex gap-2">
@@ -108,7 +91,7 @@ export function LogPanelView({
           <p className="text-zinc-600 select-none">{emptyLabel}</p>
         ) : (
           logs.map((line, i) => (
-            <div key={i} className={`break-all ${lineClass(line)}`}>
+            <div key={i} className={`break-all ${logLineClass(line)}`}>
               {line}
             </div>
           ))

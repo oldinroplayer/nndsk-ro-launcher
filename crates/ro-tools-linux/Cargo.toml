@@ -7,3 +7,4 @@ edition = "2021"
 ro-tools-core = { path = "../ro-tools-core" }
 thiserror = "1"
 libc = "0.2"
+evdev = "0.13"

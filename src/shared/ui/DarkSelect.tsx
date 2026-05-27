@@ -9,9 +9,10 @@ interface Props {
   value: string
   options: Option[]
   onChange: (value: string) => void
+  disabled?: boolean
 }
 
-export function DarkSelect({ value, options, onChange }: Props) {
+export function DarkSelect({ value, options, onChange, disabled = false }: Props) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -34,11 +35,12 @@ export function DarkSelect({ value, options, onChange }: Props) {
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((v) => !v)}
         className="w-full flex items-center justify-between gap-2 bg-zinc-950/60 border border-zinc-700/80
           text-zinc-100 text-sm rounded-lg px-3 py-2 text-left
           hover:border-zinc-600 focus:outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/20
-          transition-colors cursor-pointer"
+          transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-zinc-700/80"
       >
         <span className="truncate">{selected?.label ?? 'Seleccionar...'}</span>
         <span

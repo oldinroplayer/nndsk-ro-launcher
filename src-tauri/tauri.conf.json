@@ -14,7 +14,7 @@
       {
         "title": "RO-Launcher",
         "width": 1280,
-        "height": 720,
+        "height": 820,
         "resizable": false,
         "backgroundColor": "#09090b",
         "visible": false
@@ -28,6 +28,7 @@
     "active": true,
     "targets": "all",
     "icon": [],
+    "externalBin": ["binaries/ro-inputd"],
     "resources": {
       "resources/dgvoodoo/": "dgvoodoo/"
     }

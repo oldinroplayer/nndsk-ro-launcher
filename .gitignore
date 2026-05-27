@@ -7,7 +7,7 @@ src-tauri/target
 .claude/
 
 # Tauri — schemas auto-generados por `cargo build`
-src-tauri/gen/
+src-tauri/binaries/
 
 # Logs
 *.log

@@ -183,11 +183,11 @@ mod tests {
             wine_prefix: None,
             runner: None,
             autopot: Default::default(),
+            spammer: Default::default(),
         };
 
         let game_dir = crate::utils::required_game_dir(&server.executable_path).unwrap();
-        let dev_template =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/dgvoodoo");
+        let dev_template = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/dgvoodoo");
         let can_auto_install = dgvoodoo::template_is_complete(&dev_template);
         let status = scan_game_dir(&game_dir, &server, can_auto_install).unwrap();
 
@@ -202,10 +202,8 @@ mod tests {
 
     #[test]
     fn open_setup_prioritizes_opensetup_when_both_exist() {
-        let dir = std::env::temp_dir().join(format!(
-            "ro-launcher-opensetup-test-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("ro-launcher-opensetup-test-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
         std::fs::write(dir.join("setup.exe"), b"").unwrap();
         std::fs::write(dir.join("opensetup.exe"), b"").unwrap();
@@ -216,10 +214,7 @@ mod tests {
             path.to_ascii_lowercase().contains("opensetup.exe"),
             "path inesperado: {path}"
         );
-        assert_eq!(
-            info.label.as_deref(),
-            Some("opensetup.exe (+ setup.exe)")
-        );
+        assert_eq!(info.label.as_deref(), Some("opensetup.exe (+ setup.exe)"));
 
         let _ = std::fs::remove_file(dir.join("setup.exe"));
         let _ = std::fs::remove_file(dir.join("opensetup.exe"));

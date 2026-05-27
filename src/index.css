@@ -35,3 +35,23 @@
     @apply bg-zinc-600;
   }
 }
+
+@layer utilities {
+  @keyframes stat-flash-red {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.6); }
+  }
+
+  @keyframes stat-flash-blue {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.5); }
+  }
+
+  .animate-stat-flash-red {
+    animation: stat-flash-red 0.45s ease-out;
+  }
+
+  .animate-stat-flash-blue {
+    animation: stat-flash-blue 0.45s ease-out;
+  }
+}

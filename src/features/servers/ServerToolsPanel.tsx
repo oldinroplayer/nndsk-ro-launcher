@@ -4,7 +4,7 @@ import type {
   ToolKind,
 } from '../../shared/types'
 import { Panel } from '../../shared/ui/Panel'
-import { ToolRow } from './ToolRow'
+import { StatusDot } from '../../shared/ui/StatusDot'
 import { useSelectedServer } from './useSelectedServer'
 import { useServerTools } from './useServerTools'
 import { useSettingsStore } from '../settings/settings.store'
@@ -27,9 +27,9 @@ export function ServerToolsPanel() {
 
   if (!server) {
     return (
-      <Panel title="Herramientas" className="shrink-0">
-        <p className="text-sm text-zinc-600 text-center py-2">
-          Selecciona un servidor para escanear herramientas
+      <Panel title="Herramientas" compact className="shrink-0">
+        <p className="text-[11px] text-zinc-600 text-center py-1">
+          Selecciona un servidor
         </p>
       </Panel>
     )
@@ -41,45 +41,44 @@ export function ServerToolsPanel() {
   return (
     <Panel
       title="Herramientas"
+      compact
       className="shrink-0"
       action={
         <button
           type="button"
           onClick={refresh}
           disabled={loading}
-          className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors disabled:opacity-40 px-1"
+          className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors disabled:opacity-40"
           title="Volver a escanear"
         >
           {loading ? '...' : '↻'}
         </button>
       }
     >
-      {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
+      {error && <p className="text-[10px] text-red-400 mb-1.5">{error}</p>}
 
       {!loading && status && (
-        <div className="max-h-[220px] overflow-y-auto -mx-1 px-1">
-          <ToolsList
-            status={status}
-            prefixConfigured={prefixConfigured}
-            dgvoodooNeedsInstall={!!dgvoodooNeedsInstall}
-            opening={opening}
-            installingDgVoodoo={installingDgVoodoo}
-            uninstallingDgVoodoo={uninstallingDgVoodoo}
-            onOpen={handleOpen}
-            onInstallDgVoodoo={handleInstallDgVoodoo}
-            onUninstallDgVoodoo={handleUninstallDgVoodoo}
-          />
-        </div>
+        <ToolsGrid
+          status={status}
+          prefixConfigured={prefixConfigured}
+          dgvoodooNeedsInstall={!!dgvoodooNeedsInstall}
+          opening={opening}
+          installingDgVoodoo={installingDgVoodoo}
+          uninstallingDgVoodoo={uninstallingDgVoodoo}
+          onOpen={handleOpen}
+          onInstallDgVoodoo={handleInstallDgVoodoo}
+          onUninstallDgVoodoo={handleUninstallDgVoodoo}
+        />
       )}
 
       {loading && !status && (
-        <p className="text-xs text-zinc-600 py-2 text-center">Escaneando carpeta...</p>
+        <p className="text-[10px] text-zinc-600 py-1 text-center">Escaneando...</p>
       )}
     </Panel>
   )
 }
 
-interface ToolsListProps {
+interface ToolsGridProps {
   status: ServerToolsStatus
   prefixConfigured: boolean
   dgvoodooNeedsInstall: boolean
@@ -103,10 +102,73 @@ const SIMPLE_TOOLS: (status: ServerToolsStatus) => SimpleToolConfig[] = (status)
 ]
 
 function toolDetail(tool: ToolInfo): string {
-  return tool.label ?? (tool.found ? 'Detectado' : 'No encontrado')
+  return tool.label ?? (tool.found ? 'OK' : '—')
 }
 
-function ToolsList({
+function CompactToolCard({
+  label,
+  detail,
+  dotOk,
+  actionLabel,
+  actionBusy,
+  actionDisabled,
+  onAction,
+  secondaryLabel,
+  secondaryBusy,
+  onSecondary,
+}: {
+  label: string
+  detail: string
+  dotOk: boolean
+  actionLabel?: string
+  actionBusy?: boolean
+  actionDisabled?: boolean
+  onAction?: () => void
+  secondaryLabel?: string
+  secondaryBusy?: boolean
+  onSecondary?: () => void
+}) {
+  const btnClass =
+    'text-[10px] px-2 py-0.5 rounded border border-zinc-700/60 text-zinc-400 hover:border-amber-500/40 hover:text-amber-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
+
+  return (
+    <div className="rounded-lg border border-zinc-800/60 bg-zinc-950/30 px-2.5 py-2 flex flex-col gap-1.5 min-w-0">
+      <div className="flex items-center gap-1.5 min-w-0">
+        <StatusDot status={dotOk ? 'ok' : 'neutral'} />
+        <span className="text-[11px] text-zinc-300 font-medium shrink-0">{label}</span>
+        <span className="text-[10px] text-zinc-600 truncate font-mono" title={detail}>
+          {detail}
+        </span>
+      </div>
+      {(onAction || onSecondary) && (
+        <div className="flex gap-1">
+          {onSecondary && secondaryLabel && (
+            <button
+              type="button"
+              onClick={onSecondary}
+              disabled={secondaryBusy}
+              className={btnClass}
+            >
+              {secondaryBusy ? '...' : secondaryLabel}
+            </button>
+          )}
+          {onAction && actionLabel && (
+            <button
+              type="button"
+              onClick={onAction}
+              disabled={actionDisabled || actionBusy}
+              className={btnClass}
+            >
+              {actionBusy ? '...' : actionLabel}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ToolsGrid({
   status,
   prefixConfigured,
   dgvoodooNeedsInstall,
@@ -116,50 +178,40 @@ function ToolsList({
   onOpen,
   onInstallDgVoodoo,
   onUninstallDgVoodoo,
-}: ToolsListProps) {
+}: ToolsGridProps) {
+  const dg = status.dgvoodoo
+
   return (
-    <div>
+    <div className="grid grid-cols-3 gap-2">
       {SIMPLE_TOOLS(status).map(({ kind, label, tool }) => (
-        <ToolRow
+        <CompactToolCard
           key={kind}
           label={label}
-          dotStatus={tool.found ? 'ok' : 'neutral'}
           detail={toolDetail(tool)}
+          dotOk={tool.found}
           onAction={tool.found ? () => onOpen(kind) : undefined}
           actionLabel="Abrir"
           actionBusy={opening === kind}
           actionDisabled={!tool.found || !prefixConfigured}
         />
       ))}
-      <ToolRow
+      <CompactToolCard
         label="dgVoodoo"
-        dotStatus={status.dgvoodoo.configured ? 'ok' : 'error'}
-        detail={
-          status.dgvoodoo.configured
-            ? 'D3DImm · DDraw · conf OK'
-            : 'No detectado'
-        }
-        warning={
-          !status.dgvoodoo.configured && status.dgvoodoo.issues.length > 0
-            ? status.dgvoodoo.issues.join(' · ')
-            : undefined
-        }
+        detail={dg.configured ? 'conf OK' : '—'}
+        dotOk={dg.configured}
         onAction={
           dgvoodooNeedsInstall
             ? onInstallDgVoodoo
-            : status.dgvoodoo.cpl.found
+            : dg.cpl.found
               ? () => onOpen('dgvoodoo')
               : undefined
         }
-        actionLabel={dgvoodooNeedsInstall ? 'Instalar' : 'Configurar'}
+        actionLabel={dgvoodooNeedsInstall ? 'Instalar' : 'Config'}
         actionBusy={dgvoodooNeedsInstall ? installingDgVoodoo : opening === 'dgvoodoo'}
-        actionDisabled={!dgvoodooNeedsInstall && status.dgvoodoo.cpl.found && !prefixConfigured}
-        onSecondary={
-          status.dgvoodoo.canUninstall ? onUninstallDgVoodoo : undefined
-        }
-        secondaryLabel="Desinstalar"
+        actionDisabled={!dgvoodooNeedsInstall && dg.cpl.found && !prefixConfigured}
+        onSecondary={dg.canUninstall ? onUninstallDgVoodoo : undefined}
+        secondaryLabel="Quitar"
         secondaryBusy={uninstallingDgVoodoo}
-        secondaryDanger
       />
     </div>
   )

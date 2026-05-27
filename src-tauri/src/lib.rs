@@ -17,12 +17,17 @@ use commands::{
     launcher::{launch_game, stop_game},
     prefix::{reset_prefix, setup_prefix},
     runners::list_runners,
-    servers::{list_servers, save_servers},
     server_tools::{install_dgvoodoo, launch_server_tool, scan_server_tools, uninstall_dgvoodoo},
+    servers::{list_servers, save_servers},
     settings::{load_settings, save_settings},
+    spammer::{get_spammer_status, start_spammer, stop_spammer, update_spammer_config},
 };
 use state::GameState;
-use tools::{autopot::AutopotHandle, input::YdotoolDaemon};
+use tools::{
+    autopot::AutopotHandle,
+    input::{InputGateway, YdotoolDaemon},
+    spammer::SpammerHandle,
+};
 
 #[tauri::command]
 async fn show_main_window(app: tauri::AppHandle) {
@@ -38,6 +43,8 @@ pub fn run() {
         .manage(GameState {
             pid: Arc::new(Mutex::new(None)),
             autopot: AutopotHandle::new(),
+            spammer: SpammerHandle::new(),
+            input: InputGateway::new(),
             ydotoold: Arc::new(YdotoolDaemon::new()),
         })
         .invoke_handler(tauri::generate_handler![
@@ -61,13 +68,20 @@ pub fn run() {
             update_autopot_config,
             get_autopot_status,
             list_client_profiles,
+            start_spammer,
+            stop_spammer,
+            update_spammer_config,
+            get_spammer_status,
         ])
         .build(tauri::generate_context!())
         .expect("error al iniciar la aplicación")
         .run(|app, event| {
             if let RunEvent::Exit = event {
                 if let Some(state) = app.try_state::<GameState>() {
-                    tauri::async_runtime::block_on(state.ydotoold.shutdown());
+                    tauri::async_runtime::block_on(async {
+                        state.spammer.stop().await;
+                        state.ydotoold.shutdown().await;
+                    });
                 }
             }
         });

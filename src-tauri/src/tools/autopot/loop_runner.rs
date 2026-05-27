@@ -2,31 +2,32 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use ro_tools_core::{AutopotConfig, AutopotEngine};
-use ro_tools_linux::LazyYdotoolInput;
 use tauri::AppHandle;
 use tokio::sync::watch;
 
 use crate::models::autopot::AutopotStatusEvent;
-use crate::tools::input::YdotoolDaemon;
-
-use super::service::{
-    emit_status_if_changed, new_ticker, recover_ydotool_on_error, SharedYdotoolInput,
+use crate::tools::input::{
+    emit_status_if_changed, recover_ydotool_on_error, InputGateway, YdotoolDaemon,
 };
+use crate::utils::EVENT_AUTOPOT_STATUS;
+
+use super::service::new_ticker;
 
 pub async fn run(
     app: AppHandle,
     memory: ro_tools_linux::ProcMemoryReader,
-    input: Arc<LazyYdotoolInput>,
+    writer: crate::tools::input::GatewayWriter,
     config: AutopotConfig,
     profile: ro_tools_core::ClientProfile,
     mut stop_rx: watch::Receiver<bool>,
     mut config_rx: watch::Receiver<AutopotConfig>,
     status_arc: Arc<Mutex<AutopotStatusEvent>>,
+    gateway: InputGateway,
     ydotoold: Arc<YdotoolDaemon>,
 ) {
     let engine = Arc::new(Mutex::new(AutopotEngine::new(
         memory,
-        SharedYdotoolInput(Arc::clone(&input)),
+        writer,
         config.clone(),
         profile,
     )));
@@ -64,6 +65,7 @@ pub async fn run(
                         emit_status_if_changed(
                             &app,
                             &status_arc,
+                            EVENT_AUTOPOT_STATUS,
                             AutopotStatusEvent {
                                 active: true,
                                 cur_hp: tick.cur_hp,
@@ -81,10 +83,11 @@ pub async fn run(
                         let err_msg = e.to_string();
                         recover_ydotool_on_error(
                             &app,
-                            input.as_ref(),
+                            &gateway,
                             ydotoold.as_ref(),
                             &mut last_ydotool_recovery,
                             &err_msg,
+                            "[Input] ydotoold recuperado",
                         )
                         .await;
 
@@ -92,6 +95,7 @@ pub async fn run(
                         emit_status_if_changed(
                             &app,
                             &status_arc,
+                            EVENT_AUTOPOT_STATUS,
                             AutopotStatusEvent {
                                 active: true,
                                 cur_hp: prev.cur_hp,
@@ -148,5 +152,5 @@ pub async fn run(
         sp_percent: current_config.sp_percent,
         ..AutopotStatusEvent::default()
     };
-    emit_status_if_changed(&app, &status_arc, idle);
+    emit_status_if_changed(&app, &status_arc, EVENT_AUTOPOT_STATUS, idle);
 }
