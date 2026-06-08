@@ -8,6 +8,8 @@ import { ToggleSwitch } from '../../shared/ui/ToggleSwitch'
 import { useSelectedServer } from '../servers/useSelectedServer'
 import { statPercent } from './autopot.logic'
 import { useAutopot } from './useAutopot'
+import { api } from '../../shared/api'
+import type { ClientProfile } from '../../shared/types'
 
 function StatBar({
   cur,
@@ -76,6 +78,11 @@ export function AutopotPanel() {
   const [flashSp, setFlashSp] = useState(false)
   const prevHp = useRef(0)
   const prevSp = useRef(0)
+  const [profiles, setProfiles] = useState<ClientProfile[]>([])
+
+  useEffect(() => {
+    void api.listClientProfiles().then(setProfiles).catch(console.error)
+  }, [])
 
   const showProbeHint =
     available &&
@@ -152,6 +159,19 @@ export function AutopotPanel() {
         <div className="space-y-1.5 rounded-lg bg-zinc-950/40 border border-zinc-800/60 px-2.5 py-2">
           <StatBar cur={hpCur} max={hpMax} tone="red" flash={flashHp} />
           <StatBar cur={spCur} max={spMax} tone="blue" flash={flashSp} />
+        </div>
+
+        <div className="space-y-1">
+          <span className="text-[10px] text-zinc-600 uppercase tracking-wide">Perfil de memoria</span>
+          <DarkSelect
+            value={config.profileId ?? ''}
+            disabled={!server}
+            onChange={(val) => void updateField({ profileId: val || undefined })}
+            options={[
+              { value: '', label: 'Auto' },
+              ...profiles.map((p) => ({ value: p.id, label: p.label })),
+            ]}
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-1.5">

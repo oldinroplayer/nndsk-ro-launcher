@@ -3,6 +3,7 @@ import type {
   AppSettings,
   AutopotConfig,
   AutopotStatusEvent,
+  ClientProfile,
   DependencyStatus,
   InstallDgVoodooResult,
   RunnerInfo,
@@ -60,6 +61,8 @@ export const api = {
     invoke<void>('update_autopot_config', { config }),
 
   getAutopotStatus: () => invoke<AutopotStatusEvent>('get_autopot_status'),
+
+  listClientProfiles: () => invoke<ClientProfile[]>('list_client_profiles'),
 
   startSpammer: (server: ServerConfig) =>
     invoke<void>('start_spammer', { server }),

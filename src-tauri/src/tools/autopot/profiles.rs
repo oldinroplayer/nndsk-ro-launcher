@@ -7,7 +7,10 @@ pub fn load_profiles() -> Vec<ClientProfile> {
     PROFILES
         .get_or_init(|| {
             let raw = include_str!("../../../resources/client_profiles.json");
-            parse_profiles_json(raw).unwrap_or_else(|_| vec![ro_tools_core::domain::default_profile()])
+            parse_profiles_json(raw).unwrap_or_else(|e| {
+                eprintln!("[ro-launcher] client_profiles.json parse error: {e}");
+                vec![ro_tools_core::domain::default_profile()]
+            })
         })
         .clone()
 }

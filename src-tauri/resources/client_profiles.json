@@ -5,5 +5,12 @@
     "exeNames": ["OsRO Midrate.exe", "HoneyRO.exe", "*RO*.exe"],
     "hpBase": "0x10DCE10",
     "nameAddress": "0x10DF5D8"
+  },
+  {
+    "id": "infinity",
+    "label": "Infinity",
+    "exeNames": [],
+    "hpBase": "0x0146F28C",
+    "nameAddress": "0x01471CD8"
   }
 ]

@@ -234,6 +234,10 @@ Scans for system Wine (`/usr/bin/wine-cachyos`, `/usr/bin/wine`, `/usr/bin/wine6
 - `update_spammer_config(config)` — requiere `pid`; restart completo
 - `get_spammer_status()` → `SpammerStatusEvent` — snapshot sincrónico
 
+### `list_client_profiles` → `ClientProfile[]`
+
+Returns the embedded memory address profiles from `src-tauri/resources/client_profiles.json` (compatible with 4RTools format). Used by AutoPot to locate HP/SP values in the game process. Profile selection is per-server via `AutopotConfig.profileId`; `undefined` means auto-detect by matching the game exe name against each profile's `exeNames` globs.
+
 ---
 
 ## Critical env vars
@@ -264,9 +268,9 @@ Prevents black WebView / GBM buffer errors on Wayland (including AppImage). Skip
 
 ---
 
-## ServerConfig — shared type
+## Shared types
 
-Rust (`models/server.rs`) and TypeScript (`shared/types.ts`) share the same structure via `serde(rename_all = "camelCase")`:
+Rust (`models/`) and TypeScript (`shared/types.ts`) mirror each other via `serde(rename_all = "camelCase")`.
 
 ```typescript
 interface ServerConfig {
@@ -276,12 +280,37 @@ interface ServerConfig {
   patcherPath?: string
   winePrefix?: string      // per-server prefix override
   runner?: string          // per-server runner override (path to wine/proton binary)
-  autopot?: AutopotConfig  // per-server AutoPot settings
-  spammer?: SpammerConfig  // per-server Spammer settings
+  autopot?: AutopotConfig
+  spammer?: SpammerConfig
+}
+
+interface AutopotConfig {
+  enabled: boolean
+  hpKey: string            // F1–F9 or 0–9
+  spKey: string
+  hpPercent: number        // trigger threshold
+  spPercent: number
+  delayMs: number
+  profileId?: string       // undefined = auto-detect via exeNames; set to a ClientProfile.id to pin
+  hpBaseOverride?: string  // hex string to override base HP address from profile
+}
+
+interface SpammerConfig {
+  enabled: boolean
+  delayMs: number          // clamped 5–100ms
+  keys: string[]           // F1–F9 or 0–9
+}
+
+interface ClientProfile {
+  id: string
+  label: string
+  exeNames: string[]       // glob patterns matched against game exe for auto-detect
+  hpBase: number           // memory address for HP base
+  nameAddress: number      // memory address for character name
 }
 ```
 
-Perfiles de memoria embebidos en `src-tauri/resources/client_profiles.json` (compatible 4RTools).
+Memory profiles are embedded in `src-tauri/resources/client_profiles.json`. `tools/autopot/profiles.rs` loads them at startup via `include_str!` and caches with `OnceLock`. `ro-tools-core::resolve_profile` picks the first profile whose `exeNames` matches the running exe.
 
 ---
 
@@ -295,6 +324,14 @@ Each feature has a Zustand store:
 - `settings.store.ts` — `runners[]`, `selectedRunner` (path), persisted via `load_settings`/`save_settings`
 - `autopot.store.ts` — estado en vivo vía `ro-launcher://autopot-status`
 - `spammer.store.ts` — `status: SpammerStatusEvent`, `busy`, `userEnabled` vía `ro-launcher://spammer-status`
+
+---
+
+## Code style
+
+**TypeScript/React:** 2-space indentation, single quotes, no semicolons. Named exports only. Feature-specific logic stays in `src/features/<domain>/`; shared code goes to `src/shared/`. File naming: `PascalCase.tsx` for components, `useThing.ts` for hooks, `<domain>.store.ts` for Zustand stores, `<domain>.logic.ts` for pure logic modules.
+
+**Rust:** `rustfmt` enforced (`cargo fmt --all`). Snake_case for modules and functions. IPC payloads live in `src-tauri/src/models/`; keep command handlers thin (no business logic).
 
 ---
 

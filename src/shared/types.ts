@@ -119,6 +119,14 @@ export type AdvancedDepsStatus = Pick<
   | 'dxvkWarning'
 >
 
+export interface ClientProfile {
+  id: string
+  label: string
+  exeNames: string[]
+  hpBase: number
+  nameAddress: number
+}
+
 export interface RunnerInfo {
   id: string
   name: string

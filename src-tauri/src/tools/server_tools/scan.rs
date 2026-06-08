@@ -84,11 +84,19 @@ pub fn detect_patcher(dir: &Path, server: &ServerConfig) -> ToolInfo {
         }
     }
 
-    if let Some(path) = find_matching_exe(dir, |name| {
-        name.contains("patcher") && !name.ends_with(".tmp")
-    }) {
-        let label = file_label(&path);
-        return tool_found(path, Some(label));
+    let game_exe_lower = Path::new(&server.executable_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .map(|s| s.to_ascii_lowercase())
+        .unwrap_or_default();
+
+    for &keyword in &["patcher", "updater", "launcher"] {
+        if let Some(path) = find_matching_exe(dir, |name| {
+            name.contains(keyword) && !name.ends_with(".tmp") && name != game_exe_lower.as_str()
+        }) {
+            let label = file_label(&path);
+            return tool_found(path, Some(label));
+        }
     }
 
     tool_missing()
@@ -198,6 +206,59 @@ mod tests {
         assert!(status.dgvoodoo.conf.found);
         assert!(status.dgvoodoo.cpl.found);
         assert!(status.dgvoodoo.configured, "{:?}", status.dgvoodoo.issues);
+    }
+
+    #[test]
+    fn patcher_detects_launcher_keyword() {
+        let dir = std::env::temp_dir()
+            .join(format!("ro-patcher-test-launcher-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("infinity-ro-launcher.exe"), b"").unwrap();
+        std::fs::write(dir.join("Ragexe.exe"), b"").unwrap();
+
+        let server = ServerConfig {
+            id: "test".to_string(),
+            name: "InfinityRO".to_string(),
+            executable_path: dir.join("Ragexe.exe").to_string_lossy().to_string(),
+            patcher_path: None,
+            wine_prefix: None,
+            runner: None,
+            autopot: Default::default(),
+            spammer: Default::default(),
+        };
+
+        let info = detect_patcher(&dir, &server);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(info.found, "debe detectar infinity-ro-launcher.exe vía keyword 'launcher'");
+        assert!(info.path.unwrap().to_ascii_lowercase().contains("launcher"));
+    }
+
+    #[test]
+    fn patcher_detects_update_keyword() {
+        let dir = std::env::temp_dir()
+            .join(format!("ro-patcher-test-update-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("Starless RO - Updates.exe"), b"").unwrap();
+        std::fs::write(dir.join("Starless RO - Classic.exe"), b"").unwrap();
+
+        let server = ServerConfig {
+            id: "test".to_string(),
+            name: "StarlessRO".to_string(),
+            executable_path: dir
+                .join("Starless RO - Classic.exe")
+                .to_string_lossy()
+                .to_string(),
+            patcher_path: None,
+            wine_prefix: None,
+            runner: None,
+            autopot: Default::default(),
+            spammer: Default::default(),
+        };
+
+        let info = detect_patcher(&dir, &server);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(info.found, "debe detectar 'Starless RO - Updates.exe' vía keyword 'update'");
+        assert!(info.path.unwrap().to_ascii_lowercase().contains("update"));
     }
 
     #[test]
