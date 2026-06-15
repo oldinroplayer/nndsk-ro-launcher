@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { SPAMMER_KEYS } from '../../shared/constants'
 import {
   formatSpammerKeys,
   mergeSpammerConfig,
@@ -17,10 +18,16 @@ describe('mergeSpammerConfig', () => {
 
   it('normalizes and deduplicates keys', () => {
     expect(
-      mergeSpammerConfig({ keys: ['f2', 'F1', 'F2', 'Q'] }),
+      mergeSpammerConfig({ keys: ['z', 'f2', 'F1', 'F2', 'q', 'SPACE'] }),
     ).toMatchObject({
-      keys: ['F1', 'F2'],
+      keys: ['F1', 'F2', 'Q', 'Z'],
     })
+  })
+
+  it('keeps every supported key', () => {
+    expect(mergeSpammerConfig({ keys: [...SPAMMER_KEYS] }).keys).toEqual(
+      SPAMMER_KEYS,
+    )
   })
 })
 
@@ -29,7 +36,9 @@ describe('toggleSpammerKey', () => {
     const base = mergeSpammerConfig({ keys: ['F1'] })
     const withF2 = toggleSpammerKey(base, 'F2')
     expect(withF2.keys).toEqual(['F1', 'F2'])
-    expect(toggleSpammerKey(withF2, 'F1').keys).toEqual(['F2'])
+    const withLetter = toggleSpammerKey(withF2, 'p')
+    expect(withLetter.keys).toEqual(['F1', 'F2', 'P'])
+    expect(toggleSpammerKey(withLetter, 'F1').keys).toEqual(['F2', 'P'])
   })
 })
 

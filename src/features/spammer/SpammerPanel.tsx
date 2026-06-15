@@ -1,5 +1,9 @@
 import { memo, useMemo, useCallback } from 'react'
-import { POT_KEYS } from '../../shared/constants'
+import {
+  SPAMMER_FUNCTION_KEYS,
+  SPAMMER_LETTER_KEY_ROWS,
+  SPAMMER_NUMBER_KEYS,
+} from '../../shared/constants'
 import { Panel, type PanelTone } from '../../shared/ui/Panel'
 import { ToggleSwitch } from '../../shared/ui/ToggleSwitch'
 import { useSelectedServer } from '../servers/useSelectedServer'
@@ -34,7 +38,7 @@ const KeyChip = memo(function KeyChip({
       type="button"
       disabled={disabled}
       onClick={onToggle}
-      className={`min-w-[2rem] px-1.5 py-1 rounded-md text-[10px] font-semibold border transition-colors disabled:opacity-40 ${
+      className={`min-w-0 flex-1 px-1 py-1 rounded-md text-[10px] font-semibold border transition-colors disabled:opacity-40 ${
         active
           ? 'border-amber-500/70 bg-amber-500/15 text-amber-200'
           : 'border-zinc-800/80 bg-zinc-950/50 text-zinc-600 hover:text-zinc-400'
@@ -116,16 +120,44 @@ export function SpammerPanel() {
               {keysLabel}
             </span>
           </div>
-          <div className="flex flex-wrap gap-1">
-            {POT_KEYS.map((key) => (
-              <KeyChip
-                key={key}
-                label={key}
-                active={selectedKeys.has(key)}
-                disabled={!server || busy}
-                onToggle={() => toggleKey(key)}
-              />
+          <div className="space-y-1">
+            {[SPAMMER_FUNCTION_KEYS, SPAMMER_NUMBER_KEYS].map((row, rowIndex) => (
+              <div key={rowIndex} className="flex gap-1">
+                {row.map((key) => (
+                  <KeyChip
+                    key={key}
+                    label={key}
+                    active={selectedKeys.has(key)}
+                    disabled={!server || busy}
+                    onToggle={() => toggleKey(key)}
+                  />
+                ))}
+              </div>
             ))}
+            <div className="space-y-1 pt-0.5">
+              {SPAMMER_LETTER_KEY_ROWS.map((row, rowIndex) => (
+                <div
+                  key={rowIndex}
+                  className={`flex gap-1 ${
+                    rowIndex === 1
+                      ? 'px-[5%]'
+                      : rowIndex === 2
+                        ? 'px-[15%]'
+                        : ''
+                  }`}
+                >
+                  {row.map((key) => (
+                    <KeyChip
+                      key={key}
+                      label={key}
+                      active={selectedKeys.has(key)}
+                      disabled={!server || busy}
+                      onToggle={() => toggleKey(key)}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
           <p className="text-[10px] text-zinc-600 leading-snug">
             Skill en barra + target con click izquierdo

@@ -42,6 +42,47 @@ export const POT_KEYS = [
 
 export type PotKey = (typeof POT_KEYS)[number]
 
+export const SPAMMER_FUNCTION_KEYS = [
+  'F1',
+  'F2',
+  'F3',
+  'F4',
+  'F5',
+  'F6',
+  'F7',
+  'F8',
+  'F9',
+] as const
+
+export const SPAMMER_NUMBER_KEYS = [
+  '1',
+  '2',
+  '3',
+  '4',
+  '5',
+  '6',
+  '7',
+  '8',
+  '9',
+  '0',
+] as const
+
+export const SPAMMER_LETTER_KEY_ROWS = [
+  ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+  ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+  ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
+] as const
+
+export const SPAMMER_KEYS = [
+  ...SPAMMER_FUNCTION_KEYS,
+  ...SPAMMER_NUMBER_KEYS,
+  ...SPAMMER_LETTER_KEY_ROWS[0],
+  ...SPAMMER_LETTER_KEY_ROWS[1],
+  ...SPAMMER_LETTER_KEY_ROWS[2],
+] as const
+
+export type SpammerKey = (typeof SPAMMER_KEYS)[number]
+
 export const DEFAULT_AUTOPOT_CONFIG = {
   enabled: false,
   hpKey: 'F8',

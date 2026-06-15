@@ -1,15 +1,17 @@
 import type { SpammerConfig } from '../../shared/types'
-import { DEFAULT_SPAMMER_CONFIG, POT_KEYS } from '../../shared/constants'
+import { DEFAULT_SPAMMER_CONFIG, SPAMMER_KEYS } from '../../shared/constants'
 
-const KEY_ORDER = new Map<string, number>(POT_KEYS.map((key, index) => [key, index]))
-const POT_KEY_SET = new Set<string>(POT_KEYS)
+const KEY_ORDER = new Map<string, number>(
+  SPAMMER_KEYS.map((key, index) => [key, index]),
+)
+const SPAMMER_KEY_SET = new Set<string>(SPAMMER_KEYS)
 
 function normalizeKeys(keys: string[]): string[] {
   const seen = new Set<string>()
   const out: string[] = []
   for (const raw of keys) {
     const key = raw.trim().toUpperCase()
-    if (!POT_KEY_SET.has(key) || seen.has(key)) continue
+    if (!SPAMMER_KEY_SET.has(key) || seen.has(key)) continue
     seen.add(key)
     out.push(key)
   }

@@ -107,6 +107,19 @@ mod tests {
             log: Mutex::new(vec![]),
         };
         let mut engine = SpammerEngine::new(input, SpammerConfig::default());
-        assert!(engine.tick("Q").is_err());
+        assert!(engine.tick("SPACE").is_err());
+    }
+
+    #[test]
+    fn spammer_accepts_letter_key() {
+        let input = MockInput {
+            log: Mutex::new(vec![]),
+        };
+        let mut engine = SpammerEngine::new(input, SpammerConfig::default());
+
+        assert!(engine.tick("Q").unwrap().cycled);
+
+        let log = engine.input.log.lock().unwrap();
+        assert_eq!(log.as_slice(), &["down:Q", "click", "up:Q"]);
     }
 }

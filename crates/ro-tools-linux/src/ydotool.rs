@@ -1,3 +1,4 @@
+use crate::keyboard::key_label_to_keycode;
 use ro_tools_core::{InputWriter, ToolsError};
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -236,31 +237,7 @@ impl InputWriter for LazyYdotoolInput {
 }
 
 fn key_to_code(key: &str) -> Option<u16> {
-    match key.to_ascii_uppercase().as_str() {
-        "F1" => Some(59),
-        "F2" => Some(60),
-        "F3" => Some(61),
-        "F4" => Some(62),
-        "F5" => Some(63),
-        "F6" => Some(64),
-        "F7" => Some(65),
-        "F8" => Some(66),
-        "F9" => Some(67),
-        "F10" => Some(68),
-        "F11" => Some(87),
-        "F12" => Some(88),
-        "1" => Some(2),
-        "2" => Some(3),
-        "3" => Some(4),
-        "4" => Some(5),
-        "5" => Some(6),
-        "6" => Some(7),
-        "7" => Some(8),
-        "8" => Some(9),
-        "9" => Some(10),
-        "0" => Some(11),
-        _ => None,
-    }
+    key_label_to_keycode(key).map(|code| code.0)
 }
 
 #[cfg(test)]
@@ -292,5 +269,26 @@ mod tests {
             );
         }
         assert!(key_to_code("F13").is_none());
+    }
+
+    #[test]
+    fn maps_number_and_letter_keycodes() {
+        let expected = [
+            ("0", 11),
+            ("Q", 16),
+            ("P", 25),
+            ("A", 30),
+            ("L", 38),
+            ("Z", 44),
+            ("M", 50),
+        ];
+        for (label, code) in expected {
+            assert_eq!(key_to_code(label), Some(code), "{label}");
+            assert_eq!(
+                key_to_code(&label.to_lowercase()),
+                Some(code),
+                "{label} lower"
+            );
+        }
     }
 }

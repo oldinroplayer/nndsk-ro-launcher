@@ -140,7 +140,10 @@ fn discover_keyboards(triggers: &HashMap<KeyCode, String>) -> Vec<DiscoveredDevi
     groups.into_values().flatten().collect()
 }
 
-fn create_passthrough(devices: &[Device], triggers: &HashMap<KeyCode, String>) -> Result<VirtualDevice, String> {
+fn create_passthrough(
+    devices: &[Device],
+    triggers: &HashMap<KeyCode, String>,
+) -> Result<VirtualDevice, String> {
     let mut keys = AttributeSet::<KeyCode>::new();
     for dev in devices {
         if let Some(supported) = dev.supported_keys() {
@@ -193,7 +196,7 @@ fn main() {
         if cfg.json {
             emit_json(&serde_json::json!({
                 "type": "fatal",
-                "message": "Ninguna tecla trigger válida (usa F1-F9 o 0-9)"
+                "message": "Ninguna tecla trigger válida (usa F1-F9, 0-9 o A-Z)"
             }));
         }
         return;
@@ -400,5 +403,4 @@ mod tests {
         )));
         assert!(!is_mouse_handler(Path::new("/dev/input/event6")));
     }
-
 }

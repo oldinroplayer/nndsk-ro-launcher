@@ -173,6 +173,9 @@ fn label_to_keycode(label: &str) -> Option<KeyCode> {
         "F7" => KeyCode::KEY_F7,
         "F8" => KeyCode::KEY_F8,
         "F9" => KeyCode::KEY_F9,
+        "F10" => KeyCode::KEY_F10,
+        "F11" => KeyCode::KEY_F11,
+        "F12" => KeyCode::KEY_F12,
         "1" => KeyCode::KEY_1,
         "2" => KeyCode::KEY_2,
         "3" => KeyCode::KEY_3,
@@ -183,6 +186,32 @@ fn label_to_keycode(label: &str) -> Option<KeyCode> {
         "8" => KeyCode::KEY_8,
         "9" => KeyCode::KEY_9,
         "0" => KeyCode::KEY_0,
+        "Q" => KeyCode::KEY_Q,
+        "W" => KeyCode::KEY_W,
+        "E" => KeyCode::KEY_E,
+        "R" => KeyCode::KEY_R,
+        "T" => KeyCode::KEY_T,
+        "Y" => KeyCode::KEY_Y,
+        "U" => KeyCode::KEY_U,
+        "I" => KeyCode::KEY_I,
+        "O" => KeyCode::KEY_O,
+        "P" => KeyCode::KEY_P,
+        "A" => KeyCode::KEY_A,
+        "S" => KeyCode::KEY_S,
+        "D" => KeyCode::KEY_D,
+        "F" => KeyCode::KEY_F,
+        "G" => KeyCode::KEY_G,
+        "H" => KeyCode::KEY_H,
+        "J" => KeyCode::KEY_J,
+        "K" => KeyCode::KEY_K,
+        "L" => KeyCode::KEY_L,
+        "Z" => KeyCode::KEY_Z,
+        "X" => KeyCode::KEY_X,
+        "C" => KeyCode::KEY_C,
+        "V" => KeyCode::KEY_V,
+        "B" => KeyCode::KEY_B,
+        "N" => KeyCode::KEY_N,
+        "M" => KeyCode::KEY_M,
         _ => return None,
     })
 }
@@ -192,9 +221,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn maps_f_keys() {
-        assert!(label_to_keycode("F1").is_some());
-        assert!(label_to_keycode("f9").is_some());
+    fn maps_supported_keyboard_labels() {
+        assert_eq!(label_to_keycode("F1"), Some(KeyCode::KEY_F1));
+        assert_eq!(label_to_keycode("f12"), Some(KeyCode::KEY_F12));
+        assert_eq!(label_to_keycode("0"), Some(KeyCode::KEY_0));
+        assert_eq!(label_to_keycode("P"), Some(KeyCode::KEY_P));
+        for letter in 'A'..='Z' {
+            assert!(label_to_keycode(&letter.to_string()).is_some(), "{letter}");
+            assert!(
+                label_to_keycode(&letter.to_ascii_lowercase().to_string()).is_some(),
+                "{letter} lower"
+            );
+        }
         assert!(label_to_keycode("ZZ").is_none());
     }
 
