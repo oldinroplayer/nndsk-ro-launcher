@@ -17,13 +17,13 @@ export function validateServerConfig(server: ServerConfig): string | null {
   if (!hasExeExtension(server.executablePath)) {
     return 'El ejecutable del cliente debe ser un archivo .exe'
   }
-  if (server.patcherPath && !hasExeExtension(server.patcherPath)) {
+  if (typeof server.patcherPath === 'string' && !hasExeExtension(server.patcherPath)) {
     return 'El patcher debe ser un archivo .exe'
   }
-  if (server.winePrefix !== undefined && !server.winePrefix.trim()) {
+  if (typeof server.winePrefix === 'string' && !server.winePrefix.trim()) {
     return 'El WINEPREFIX no puede estar vacío'
   }
-  if (server.runner !== undefined && !server.runner.trim()) {
+  if (typeof server.runner === 'string' && !server.runner.trim()) {
     return 'El runner no puede estar vacío'
   }
   return null

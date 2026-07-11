@@ -37,6 +37,9 @@ pub struct AutopotConfig {
     pub sp_percent: u32,
     #[serde(default = "default_delay_ms")]
     pub delay_ms: u64,
+    /// Sends an HP key press on idle AutoPot cycles to reduce reaction time on high-latency servers.
+    #[serde(default)]
+    pub proactive_mode: bool,
     /// Optional override of profile id from registry
     #[serde(default)]
     pub profile_id: Option<String>,
@@ -54,6 +57,7 @@ impl Default for AutopotConfig {
             hp_percent: default_hp_percent(),
             sp_percent: default_sp_percent(),
             delay_ms: default_delay_ms(),
+            proactive_mode: false,
             profile_id: None,
             hp_base_override: None,
         }

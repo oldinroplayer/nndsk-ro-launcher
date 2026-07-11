@@ -22,6 +22,7 @@ export interface AutopotConfig {
   hpPercent: number
   spPercent: number
   delayMs: number
+  proactiveMode: boolean
   profileId?: string
   hpBaseOverride?: string
 }
@@ -58,9 +59,11 @@ export interface ServerConfig {
   id: string
   name: string
   executablePath: string
-  patcherPath?: string
-  winePrefix?: string
-  runner?: string
+  // Rust Option<T> is serialized by Tauri as null, while locally-created
+  // configs may omit these fields altogether.
+  patcherPath?: string | null
+  winePrefix?: string | null
+  runner?: string | null
   autopot?: AutopotConfig
   spammer?: SpammerConfig
 }

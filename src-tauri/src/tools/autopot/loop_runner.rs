@@ -63,13 +63,16 @@ pub async fn run(context: RunContext) {
 
                 match tick_result {
                     Ok(Ok(tick)) => {
+                        // Proactive pulses run at the regular AutoPot cadence; omit them from
+                        // the event log so the Logs panel remains useful during long sessions.
                         if tick.potted_hp || tick.potted_sp {
                             crate::utils::emit_tool_log_opt(
                                 Some(&app),
                                 format!(
-                                    "[AutoPot] tick#{tick_count} pot HP={} SP={} | {}/{} HP · {}/{} SP · '{}'",
+                                    "[AutoPot] tick#{tick_count} HP={} SP={} proactivo={} | {}/{} HP · {}/{} SP · '{}'",
                                     if tick.potted_hp { "sí" } else { "—" },
                                     if tick.potted_sp { "sí" } else { "—" },
+                                    if tick.proactive_hp_pulse { "sí" } else { "—" },
                                     tick.cur_hp, tick.max_hp,
                                     tick.cur_sp, tick.max_sp,
                                     tick.character_name,
@@ -143,10 +146,11 @@ pub async fn run(context: RunContext) {
                     crate::utils::emit_tool_log_opt(
                         Some(&app),
                         format!(
-                            "[AutoPot] Config actualizada HP={}% SP={}% delay={}ms",
+                            "[AutoPot] Config actualizada HP={}% SP={}% delay={}ms proactivo={}",
                             current_config.hp_percent,
                             current_config.sp_percent,
                             current_config.delay_ms,
+                            if current_config.proactive_mode { "sí" } else { "no" },
                         ),
                     );
                 }

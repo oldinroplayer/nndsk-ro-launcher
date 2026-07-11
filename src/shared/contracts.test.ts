@@ -18,6 +18,15 @@ describe('server contract', () => {
       .toBe('El ejecutable del cliente debe ser un archivo .exe')
   })
 
+  it('acepta null en campos opcionales serializados por Tauri', () => {
+    expect(validateServerConfig({
+      ...server,
+      patcherPath: null,
+      winePrefix: null,
+      runner: null,
+    })).toBeNull()
+  })
+
   it('rechaza ids duplicados al guardar', () => {
     expect(validateServers([server, { ...server, name: 'Otro RO' }]))
       .toBe("El identificador 'server-1' está duplicado")

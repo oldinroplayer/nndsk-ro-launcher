@@ -161,6 +161,21 @@ export function AutopotPanel() {
           <StatBar cur={spCur} max={spMax} tone="blue" flash={flashSp} />
         </div>
 
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-500/15 bg-amber-500/5 px-2.5 py-2">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-amber-100/90">Modo proactivo</p>
+            <p className="text-[10px] leading-snug text-zinc-500">
+              Envía HP entre recuperaciones para reducir la reacción con latencia alta.
+            </p>
+          </div>
+          <ToggleSwitch
+            checked={config.proactiveMode}
+            disabled={!server || busy}
+            onChange={(proactiveMode) => void updateField({ proactiveMode })}
+            tone="amber"
+          />
+        </div>
+
         <div className="space-y-1">
           <span className="text-[10px] text-zinc-600 uppercase tracking-wide">Perfil de memoria</span>
           <DarkSelect

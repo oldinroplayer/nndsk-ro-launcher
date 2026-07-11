@@ -13,6 +13,8 @@ pub struct AutopotTick {
     pub character_name: String,
     pub potted_hp: bool,
     pub potted_sp: bool,
+    /// HP input sent by proactive mode, not by the configured HP threshold.
+    pub proactive_hp_pulse: bool,
 }
 
 pub struct AutopotEngine<M: MemoryReader, I: InputWriter> {
@@ -94,6 +96,13 @@ impl<M: MemoryReader, I: InputWriter> AutopotEngine<M, I> {
         if self.is_sp_below(cur_sp, max_sp) {
             self.pot_sp()?;
             tick.potted_sp = true;
+        }
+
+        // Keep regular HP/SP recovery ahead of proactive input. This avoids a
+        // continuous HP pulse competing with an urgent potion action.
+        if self.config.proactive_mode && !tick.potted_hp && !tick.potted_sp {
+            self.pot_hp()?;
+            tick.proactive_hp_pulse = true;
         }
 
         Ok(tick)
@@ -198,5 +207,36 @@ mod tests {
         let mut e = engine(900, 1000, 200, 500);
         let tick = e.tick().unwrap();
         assert!(tick.potted_sp);
+    }
+
+    #[test]
+    fn proactive_mode_pulses_hp_when_no_recovery_is_needed() {
+        let mut e = engine(1000, 1000, 500, 500);
+        e.update_config(AutopotConfig {
+            proactive_mode: true,
+            ..e.config().clone()
+        });
+
+        let tick = e.tick().unwrap();
+
+        assert!(tick.proactive_hp_pulse);
+        assert!(!tick.potted_hp);
+        assert!(!tick.potted_sp);
+        assert_eq!(e.input.pressed.lock().unwrap().as_slice(), ["F8"]);
+    }
+
+    #[test]
+    fn proactive_mode_does_not_compete_with_sp_recovery() {
+        let mut e = engine(1000, 1000, 200, 500);
+        e.update_config(AutopotConfig {
+            proactive_mode: true,
+            ..e.config().clone()
+        });
+
+        let tick = e.tick().unwrap();
+
+        assert!(tick.potted_sp);
+        assert!(!tick.proactive_hp_pulse);
+        assert_eq!(e.input.pressed.lock().unwrap().as_slice(), ["F9"]);
     }
 }

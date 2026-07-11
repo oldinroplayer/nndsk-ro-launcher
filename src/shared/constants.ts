@@ -90,6 +90,7 @@ export const DEFAULT_AUTOPOT_CONFIG = {
   hpPercent: 80,
   spPercent: 50,
   delayMs: 100,
+  proactiveMode: false,
 } as const
 
 export const DEFAULT_SPAMMER_CONFIG = {
