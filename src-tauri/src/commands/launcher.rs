@@ -12,6 +12,7 @@ pub async fn launch_game(
     state: State<'_, GameState>,
     server: ServerConfig,
 ) -> Result<(), String> {
+    server.validate_executable_available()?;
     launcher::launch_game(
         app,
         &Arc::clone(&state.pid),

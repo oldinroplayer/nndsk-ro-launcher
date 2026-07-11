@@ -13,18 +13,32 @@ use crate::utils::EVENT_AUTOPOT_STATUS;
 
 use super::service::new_ticker;
 
-pub async fn run(
-    app: AppHandle,
-    memory: ro_tools_linux::ProcMemoryReader,
-    writer: crate::tools::input::GatewayWriter,
-    config: AutopotConfig,
-    profile: ro_tools_core::ClientProfile,
-    mut stop_rx: watch::Receiver<bool>,
-    mut config_rx: watch::Receiver<AutopotConfig>,
-    status_arc: Arc<Mutex<AutopotStatusEvent>>,
-    gateway: InputGateway,
-    ydotoold: Arc<YdotoolDaemon>,
-) {
+pub struct RunContext {
+    pub app: AppHandle,
+    pub memory: ro_tools_linux::ProcMemoryReader,
+    pub writer: crate::tools::input::GatewayWriter,
+    pub config: AutopotConfig,
+    pub profile: ro_tools_core::ClientProfile,
+    pub stop_rx: watch::Receiver<bool>,
+    pub config_rx: watch::Receiver<AutopotConfig>,
+    pub status_arc: Arc<Mutex<AutopotStatusEvent>>,
+    pub gateway: InputGateway,
+    pub ydotoold: Arc<YdotoolDaemon>,
+}
+
+pub async fn run(context: RunContext) {
+    let RunContext {
+        app,
+        memory,
+        writer,
+        config,
+        profile,
+        mut stop_rx,
+        mut config_rx,
+        status_arc,
+        gateway,
+        ydotoold,
+    } = context;
     let engine = Arc::new(Mutex::new(AutopotEngine::new(
         memory,
         writer,

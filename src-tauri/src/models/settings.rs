@@ -15,3 +15,12 @@ impl Default for AppSettings {
         }
     }
 }
+
+impl AppSettings {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.default_runner.trim().is_empty() {
+            return Err("El runner por defecto no puede estar vacío".to_string());
+        }
+        Ok(())
+    }
+}

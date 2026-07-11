@@ -190,6 +190,12 @@ impl LazyYdotoolInput {
     }
 }
 
+impl Default for LazyYdotoolInput {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InputWriter for LazyYdotoolInput {
     fn press_key(&self, key: &str) -> Result<(), ToolsError> {
         let mut guard = self

@@ -8,5 +8,6 @@ pub async fn load_settings() -> Result<AppSettings, String> {
 
 #[tauri::command]
 pub async fn save_settings(settings: AppSettings) -> Result<(), String> {
+    settings.validate()?;
     save_app_settings(&settings).await
 }

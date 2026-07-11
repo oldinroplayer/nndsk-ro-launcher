@@ -88,10 +88,18 @@ impl AutopotHandle {
         emit_tool_log_opt(Some(&app), "[AutoPot] Loop iniciado (input compartido)");
 
         tokio::spawn(async move {
-            super::loop_runner::run(
-                app, memory, writer, config, profile, stop_rx, config_rx, status_arc, input,
+            super::loop_runner::run(super::loop_runner::RunContext {
+                app,
+                memory,
+                writer,
+                config,
+                profile,
+                stop_rx,
+                config_rx,
+                status_arc,
+                gateway: input,
                 ydotoold,
-            )
+            })
             .await;
         });
 

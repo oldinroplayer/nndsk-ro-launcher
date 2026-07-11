@@ -111,10 +111,7 @@ pub fn detect_audio_backends(current_driver: Option<AudioDriver>) -> AudioBacken
     let ok = pulse_32 || alsa_32;
 
     let warning = if !ok {
-        Some(
-            "Sin librerías de audio 32-bit. Instala lib32-libpulse o lib32-alsa-lib."
-                .to_string(),
-        )
+        Some("Sin librerías de audio 32-bit. Instala lib32-libpulse o lib32-alsa-lib.".to_string())
     } else {
         None
     };
@@ -182,11 +179,7 @@ fn parse_driver_from_reg_output(output: &str) -> Option<AudioDriver> {
     None
 }
 
-fn wine_reg_command(
-    runner: &ResolvedRunner,
-    prefix_path: &str,
-    args: &[&str],
-) -> Command {
+fn wine_reg_command(runner: &ResolvedRunner, prefix_path: &str, args: &[&str]) -> Command {
     let mut cmd = Command::new(&runner.wine_bin);
     cmd.args(args);
     apply_prefix_env(&mut cmd, prefix_path);
@@ -201,13 +194,7 @@ pub async fn read_current_driver(
     let output = wine_reg_command(
         runner,
         prefix_path,
-        &[
-            "reg",
-            "query",
-            r"HKCU\Software\Wine\Drivers",
-            "/v",
-            "Audio",
-        ],
+        &["reg", "query", r"HKCU\Software\Wine\Drivers", "/v", "Audio"],
     )
     .stdout(std::process::Stdio::piped())
     .stderr(std::process::Stdio::null())
@@ -256,7 +243,9 @@ async fn set_audio_driver(
         Ok(())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(format!("No se pudo configurar el driver de audio: {stderr}"))
+        Err(format!(
+            "No se pudo configurar el driver de audio: {stderr}"
+        ))
     }
 }
 
@@ -284,7 +273,10 @@ pub async fn ensure_audio_driver(
         if current == Some(AudioDriver::Alsa) {
             emit_log_opt(
                 app,
-                format!("Audio: {} (configurado manualmente)", AudioDriver::Alsa.label()),
+                format!(
+                    "Audio: {} (configurado manualmente)",
+                    AudioDriver::Alsa.label()
+                ),
             );
             return Ok(EnsureAudioResult {
                 configured: true,

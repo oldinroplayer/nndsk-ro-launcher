@@ -90,7 +90,7 @@ pub fn detect_patcher(dir: &Path, server: &ServerConfig) -> ToolInfo {
         .map(|s| s.to_ascii_lowercase())
         .unwrap_or_default();
 
-    for &keyword in &["patcher", "updater", "launcher"] {
+    for &keyword in &["patcher", "updater", "update", "launcher"] {
         if let Some(path) = find_matching_exe(dir, |name| {
             name.contains(keyword) && !name.ends_with(".tmp") && name != game_exe_lower.as_str()
         }) {
@@ -179,25 +179,54 @@ fn tool_missing() -> ToolInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tools::server_tools::dgvoodoo;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
-    #[test]
-    fn scan_osro_sample_folder() {
-        let server = ServerConfig {
+    static TEMP_DIR_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+    fn temp_test_dir(name: &str) -> PathBuf {
+        let sequence = TEMP_DIR_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!(
+            "ro-launcher-{name}-{}-{sequence}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn test_server(dir: &Path, name: &str, executable: &str) -> ServerConfig {
+        ServerConfig {
             id: "test".to_string(),
-            name: "OsRO MR".to_string(),
-            executable_path: "/home/nndsk/Downloads/OsRO MR Full v4.3/OsRO MR Full v4.3/OldschoolRO [MR]/OsRO Midrate.exe".to_string(),
+            name: name.to_string(),
+            executable_path: dir.join(executable).to_string_lossy().to_string(),
             patcher_path: None,
             wine_prefix: None,
             runner: None,
             autopot: Default::default(),
             spammer: Default::default(),
-        };
+        }
+    }
 
-        let game_dir = crate::utils::required_game_dir(&server.executable_path).unwrap();
-        let dev_template = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/dgvoodoo");
-        let can_auto_install = dgvoodoo::template_is_complete(&dev_template);
-        let status = scan_game_dir(&game_dir, &server, can_auto_install).unwrap();
+    #[test]
+    fn scan_osro_sample_folder() {
+        let dir = temp_test_dir("scan-sample");
+        for file in [
+            "OsRO Midrate.exe",
+            "OsRO Patcher.exe",
+            "OpenSetup.exe",
+            "D3DImm.dll",
+            "DDraw.dll",
+            "dgVoodooCpl.exe",
+        ] {
+            std::fs::write(dir.join(file), b"").unwrap();
+        }
+        std::fs::write(
+            dir.join("dgVoodoo.conf"),
+            "[General]\nVersion = 2\nOutputAPI = d3d11_fl11\n[DirectX]\nDisableAndPassThru = false",
+        )
+        .unwrap();
+
+        let server = test_server(&dir, "OsRO MR", "OsRO Midrate.exe");
+        let status = scan_game_dir(dir.to_str().unwrap(), &server, true).unwrap();
 
         assert!(status.open_setup.found);
         assert!(status.patcher.found);
@@ -206,66 +235,46 @@ mod tests {
         assert!(status.dgvoodoo.conf.found);
         assert!(status.dgvoodoo.cpl.found);
         assert!(status.dgvoodoo.configured, "{:?}", status.dgvoodoo.issues);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn patcher_detects_launcher_keyword() {
-        let dir = std::env::temp_dir()
-            .join(format!("ro-patcher-test-launcher-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = temp_test_dir("patcher-launcher");
         std::fs::write(dir.join("infinity-ro-launcher.exe"), b"").unwrap();
         std::fs::write(dir.join("Ragexe.exe"), b"").unwrap();
 
-        let server = ServerConfig {
-            id: "test".to_string(),
-            name: "InfinityRO".to_string(),
-            executable_path: dir.join("Ragexe.exe").to_string_lossy().to_string(),
-            patcher_path: None,
-            wine_prefix: None,
-            runner: None,
-            autopot: Default::default(),
-            spammer: Default::default(),
-        };
+        let server = test_server(&dir, "InfinityRO", "Ragexe.exe");
 
         let info = detect_patcher(&dir, &server);
         let _ = std::fs::remove_dir_all(&dir);
-        assert!(info.found, "debe detectar infinity-ro-launcher.exe vía keyword 'launcher'");
+        assert!(
+            info.found,
+            "debe detectar infinity-ro-launcher.exe vía keyword 'launcher'"
+        );
         assert!(info.path.unwrap().to_ascii_lowercase().contains("launcher"));
     }
 
     #[test]
     fn patcher_detects_update_keyword() {
-        let dir = std::env::temp_dir()
-            .join(format!("ro-patcher-test-update-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = temp_test_dir("patcher-update");
         std::fs::write(dir.join("Starless RO - Updates.exe"), b"").unwrap();
         std::fs::write(dir.join("Starless RO - Classic.exe"), b"").unwrap();
 
-        let server = ServerConfig {
-            id: "test".to_string(),
-            name: "StarlessRO".to_string(),
-            executable_path: dir
-                .join("Starless RO - Classic.exe")
-                .to_string_lossy()
-                .to_string(),
-            patcher_path: None,
-            wine_prefix: None,
-            runner: None,
-            autopot: Default::default(),
-            spammer: Default::default(),
-        };
+        let server = test_server(&dir, "StarlessRO", "Starless RO - Classic.exe");
 
         let info = detect_patcher(&dir, &server);
         let _ = std::fs::remove_dir_all(&dir);
-        assert!(info.found, "debe detectar 'Starless RO - Updates.exe' vía keyword 'update'");
+        assert!(
+            info.found,
+            "debe detectar 'Starless RO - Updates.exe' vía keyword 'update'"
+        );
         assert!(info.path.unwrap().to_ascii_lowercase().contains("update"));
     }
 
     #[test]
     fn open_setup_prioritizes_opensetup_when_both_exist() {
-        let dir =
-            std::env::temp_dir().join(format!("ro-launcher-opensetup-test-{}", std::process::id()));
-        let _ = std::fs::create_dir_all(&dir);
+        let dir = temp_test_dir("opensetup");
         std::fs::write(dir.join("setup.exe"), b"").unwrap();
         std::fs::write(dir.join("opensetup.exe"), b"").unwrap();
 

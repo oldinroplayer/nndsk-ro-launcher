@@ -11,6 +11,7 @@ pub async fn start_spammer(
     state: State<'_, GameState>,
     server: ServerConfig,
 ) -> Result<(), String> {
+    server.validate()?;
     state
         .pid
         .lock()

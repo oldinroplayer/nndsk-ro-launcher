@@ -25,7 +25,8 @@ impl YdotoolDaemon {
     }
 
     pub async fn shutdown(&self) {
-        if let Some(mut child) = self.child.lock().unwrap().take() {
+        let child = self.child.lock().unwrap().take();
+        if let Some(mut child) = child {
             let _ = child.kill().await;
         }
     }
@@ -74,10 +75,7 @@ pub async fn ensure_ydotoold(
     let uid = ro_tools_linux::current_uid();
     let gid = ro_tools_linux::current_gid();
 
-    emit_tool_log_opt(
-        app,
-        format!("[Input] Iniciando ydotoold ({socket_path})"),
-    );
+    emit_tool_log_opt(app, format!("[Input] Iniciando ydotoold ({socket_path})"));
 
     let mut child = Command::new("ydotoold")
         .arg("--socket-path")
@@ -121,7 +119,5 @@ pub async fn ensure_ydotoold(
 }
 
 fn permission_hint(base: &str) -> String {
-    format!(
-        "{base}. Si persiste: sudo usermod -aG input $USER y reinicia sesión."
-    )
+    format!("{base}. Si persiste: sudo usermod -aG input $USER y reinicia sesión.")
 }

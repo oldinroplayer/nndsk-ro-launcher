@@ -22,10 +22,7 @@ pub fn template_dir(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 pub fn template_is_complete(dir: &Path) -> bool {
-    dir.is_dir()
-        && TEMPLATE_FILES
-            .iter()
-            .all(|file| dir.join(file).is_file())
+    dir.is_dir() && TEMPLATE_FILES.iter().all(|file| dir.join(file).is_file())
 }
 
 pub fn install_files(app: &AppHandle, game_dir: &Path) -> Result<Vec<String>, String> {
@@ -39,8 +36,7 @@ pub fn install_files(app: &AppHandle, game_dir: &Path) -> Result<Vec<String>, St
 
         let source = template_dir.join(file);
         let dest = game_dir.join(file);
-        std::fs::copy(&source, &dest)
-            .map_err(|e| format!("No se pudo copiar {file}: {e}"))?;
+        std::fs::copy(&source, &dest).map_err(|e| format!("No se pudo copiar {file}: {e}"))?;
         installed.push((*file).to_string());
     }
 
@@ -58,9 +54,7 @@ pub fn uninstall_files(game_dir: &Path) -> Result<Vec<String>, String> {
         std::fs::remove_file(&path).map_err(|e| {
             format!(
                 "No se pudo eliminar {}: {e}",
-                path.file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or(file)
+                path.file_name().and_then(|n| n.to_str()).unwrap_or(file)
             )
         })?;
         removed.push(

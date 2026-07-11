@@ -55,10 +55,7 @@ pub async fn reset_prefix(app: AppHandle) -> Result<(), String> {
     kill_wineserver(&prefix).await;
 
     if Path::new(&prefix).exists() {
-        emit_log(
-            &app,
-            format!("Eliminando prefix en {prefix}..."),
-        )?;
+        emit_log(&app, format!("Eliminando prefix en {prefix}..."))?;
         std::fs::remove_dir_all(&prefix)
             .map_err(|e| format!("Error al eliminar el prefix: {e}"))?;
     }

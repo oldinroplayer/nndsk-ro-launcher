@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::{parse_hex, ToolsError};
+
 fn default_hp_key() -> String {
     "F8".into()
 }
@@ -65,5 +67,26 @@ impl AutopotConfig {
         c.sp_percent = c.sp_percent.clamp(1, 99);
         c.delay_ms = c.delay_ms.clamp(50, 2000);
         c
+    }
+
+    pub fn validate(&self) -> Result<(), ToolsError> {
+        if self.hp_key.trim().is_empty() || self.sp_key.trim().is_empty() {
+            return Err(ToolsError::Other(
+                "AutoPot: las teclas de HP y SP no pueden estar vacías".into(),
+            ));
+        }
+        if self
+            .profile_id
+            .as_deref()
+            .is_some_and(|id| id.trim().is_empty())
+        {
+            return Err(ToolsError::Other(
+                "AutoPot: el perfil no puede estar vacío".into(),
+            ));
+        }
+        if let Some(address) = &self.hp_base_override {
+            parse_hex(address).map_err(ToolsError::Other)?;
+        }
+        Ok(())
     }
 }

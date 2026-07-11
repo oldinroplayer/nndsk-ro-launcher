@@ -25,7 +25,8 @@ pub fn find_matching_exe(dir: &Path, predicate: impl Fn(&str) -> bool) -> Option
         .map(|e| e.path())
         .filter(|p| {
             p.is_file()
-                && p.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("exe"))
+                && p.extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("exe"))
                 && p.file_name()
                     .and_then(|n| n.to_str())
                     .is_some_and(|n| predicate(&n.to_ascii_lowercase()))

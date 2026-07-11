@@ -13,6 +13,7 @@ pub async fn start_autopot(
     state: State<'_, GameState>,
     server: ServerConfig,
 ) -> Result<(), String> {
+    server.validate_executable_available()?;
     let launcher_pid = state
         .pid
         .lock()
@@ -41,6 +42,7 @@ pub fn update_autopot_config(
     state: State<'_, GameState>,
     config: ro_tools_core::AutopotConfig,
 ) -> Result<(), String> {
+    config.validate().map_err(|error| error.to_string())?;
     state.autopot.update_config(config)
 }
 

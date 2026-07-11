@@ -18,7 +18,7 @@ pub struct ProcMemoryReader {
 impl ProcMemoryReader {
     pub fn open(pid: u32) -> Result<Self, ProcMemoryError> {
         // Validar que el proceso existe; la lectura usa process_vm_readv o /proc/mem.
-        if !fs::metadata(format!("/proc/{pid}")).is_ok() {
+        if fs::metadata(format!("/proc/{pid}")).is_err() {
             return Err(ProcMemoryError::Open {
                 pid,
                 message: "proceso no encontrado".into(),
@@ -62,11 +62,7 @@ impl MemoryReader for ProcMemoryReader {
     }
 }
 
-fn read_u32_at(
-    pid: u32,
-    address: u32,
-    file: &Mutex<Option<File>>,
-) -> Result<u32, ToolsError> {
+fn read_u32_at(pid: u32, address: u32, file: &Mutex<Option<File>>) -> Result<u32, ToolsError> {
     let mut buf = [0u8; 4];
     read_bytes_at(pid, address, &mut buf, file)?;
     Ok(u32::from_le_bytes(buf))
@@ -113,16 +109,7 @@ fn read_via_vm(pid: u32, address: u32, buf: &mut [u8]) -> Result<usize, ToolsErr
         iov_len: buf.len(),
     };
 
-    let n = unsafe {
-        libc::process_vm_readv(
-            pid as libc::pid_t,
-            &local_iov,
-            1,
-            &remote_iov,
-            1,
-            0,
-        )
-    };
+    let n = unsafe { libc::process_vm_readv(pid as libc::pid_t, &local_iov, 1, &remote_iov, 1, 0) };
 
     if n < 0 {
         Err(ToolsError::MemoryRead {

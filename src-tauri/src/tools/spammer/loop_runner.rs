@@ -8,7 +8,9 @@ use tokio::sync::watch;
 use tokio::time::{interval, MissedTickBehavior};
 
 use crate::models::spammer::SpammerStatusEvent;
-use crate::tools::input::{emit_status_if_changed, recover_ydotool_on_error, InputGateway, YdotoolDaemon};
+use crate::tools::input::{
+    emit_status_if_changed, recover_ydotool_on_error, InputGateway, YdotoolDaemon,
+};
 use crate::utils::{emit_tool_log_opt, EVENT_SPAMMER_STATUS};
 
 const KEY_POLL_MS: u64 = 5;

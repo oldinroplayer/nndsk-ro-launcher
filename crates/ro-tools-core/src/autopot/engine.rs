@@ -60,7 +60,7 @@ impl<M: MemoryReader, I: InputWriter> AutopotEngine<M, I> {
         let cur_sp = self.memory.read_u32(self.profile.cur_sp_address())?;
         let max_sp = self.memory.read_u32(self.profile.max_sp_address())?;
 
-        if self.tick_count == 1 || self.tick_count % 20 == 0 {
+        if self.tick_count == 1 || self.tick_count.is_multiple_of(20) {
             self.cached_name = self
                 .memory
                 .read_string(self.profile.name_address, 40)

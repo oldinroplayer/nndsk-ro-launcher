@@ -10,10 +10,7 @@ const GECKO_BASE_URL: &str = "https://dl.winehq.org/wine/wine-gecko";
 
 pub fn find_system_gecko_msis() -> Vec<PathBuf> {
     let mut msis = Vec::new();
-    let search_dirs = [
-        "/usr/share/wine/gecko",
-        "/usr/share/wine/wine/gecko",
-    ];
+    let search_dirs = ["/usr/share/wine/gecko", "/usr/share/wine/wine/gecko"];
 
     for dir in search_dirs {
         collect_msis(Path::new(dir), &mut msis);
@@ -38,11 +35,8 @@ fn collect_msis(dir: &Path, msis: &mut Vec<PathBuf>) {
 }
 
 pub fn check_gecko_installed(prefix_path: &str) -> bool {
-    gecko_has_runtime(&format!(
-        "{prefix_path}/drive_c/windows/system32/gecko"
-    )) || gecko_has_runtime(&format!(
-        "{prefix_path}/drive_c/windows/syswow64/gecko"
-    ))
+    gecko_has_runtime(&format!("{prefix_path}/drive_c/windows/system32/gecko"))
+        || gecko_has_runtime(&format!("{prefix_path}/drive_c/windows/syswow64/gecko"))
 }
 
 fn gecko_has_runtime(gecko_dir: &str) -> bool {
@@ -95,10 +89,7 @@ async fn ensure_cached_gecko_msis(app: &AppHandle) -> Result<Vec<PathBuf>, Strin
         let dest = cache_dir.join(&file);
         if !dest.exists() {
             let url = format!("{GECKO_BASE_URL}/{GECKO_VERSION}/{file}");
-            emit_log(
-                app,
-                format!("Descargando Wine Gecko ({file})..."),
-            )?;
+            emit_log(app, format!("Descargando Wine Gecko ({file})..."))?;
             download_file(&url, &dest).await?;
         }
         msis.push(dest);

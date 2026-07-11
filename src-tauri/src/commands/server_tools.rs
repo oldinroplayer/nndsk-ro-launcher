@@ -12,6 +12,7 @@ pub async fn scan_server_tools(
     app: AppHandle,
     server: ServerConfig,
 ) -> Result<ServerToolsStatus, String> {
+    server.validate_executable_available()?;
     server_tools::scan_status(&app, &server)
 }
 
@@ -20,6 +21,7 @@ pub async fn install_dgvoodoo(
     app: AppHandle,
     server: ServerConfig,
 ) -> Result<InstallDgVoodooResult, String> {
+    server.validate_executable_available()?;
     server_tools::install_dgvoodoo(&app, &server).await
 }
 
@@ -28,6 +30,7 @@ pub async fn uninstall_dgvoodoo(
     app: AppHandle,
     server: ServerConfig,
 ) -> Result<UninstallDgVoodooResult, String> {
+    server.validate_executable_available()?;
     server_tools::uninstall_dgvoodoo(&app, &server).await
 }
 
@@ -37,5 +40,6 @@ pub async fn launch_server_tool(
     server: ServerConfig,
     tool: ToolKind,
 ) -> Result<(), String> {
+    server.validate_executable_available()?;
     server_tools::launch_tool(&app, &server, tool).await
 }

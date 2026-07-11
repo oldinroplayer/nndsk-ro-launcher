@@ -65,8 +65,8 @@ pub async fn launch_tool(
 
     let ctx = resolve_wine_context(server.wine_prefix.clone(), server.runner.clone()).await?;
 
-    let work_dir = required_game_dir(&exe_path)
-        .or_else(|_| required_game_dir(&server.executable_path))?;
+    let work_dir =
+        required_game_dir(&exe_path).or_else(|_| required_game_dir(&server.executable_path))?;
 
     let mut cmd = wine_command(
         &ctx.resolved.wine_bin,

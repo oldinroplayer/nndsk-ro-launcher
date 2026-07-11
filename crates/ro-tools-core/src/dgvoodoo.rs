@@ -83,7 +83,8 @@ mod tests {
 
     #[test]
     fn accepts_valid_conf() {
-        let content = "[General]\nVersion = 2\nOutputAPI = d3d11_fl11\n[DirectX]\nDisableAndPassThru = false";
+        let content =
+            "[General]\nVersion = 2\nOutputAPI = d3d11_fl11\n[DirectX]\nDisableAndPassThru = false";
         let mut issues = Vec::new();
         validate_conf(content, &mut issues);
         assert!(issues.is_empty());

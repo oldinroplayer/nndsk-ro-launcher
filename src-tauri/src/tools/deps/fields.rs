@@ -3,8 +3,7 @@ use std::path::Path;
 const WINE_HINT: &str = "Instala Wine: sudo pacman -S wine-cachyos";
 const WINETRICKS_HINT: &str = "Instala winetricks: sudo pacman -S winetricks";
 const PREFIX_SETUP_HINT: &str = "WINEPREFIX no configurado. Pulsa Configurar en Jugar.";
-const PREFIX_INCOMPLETE_HINT: &str =
-    "Setup del prefix incompleto. Pulsa Configurar en Jugar.";
+const PREFIX_INCOMPLETE_HINT: &str = "Setup del prefix incompleto. Pulsa Configurar en Jugar.";
 const DXVK_PENDING_HINT: &str = "Disponible tras configurar el prefix.";
 const DXVK_MISSING_HINT: &str =
     "DXVK no encontrado en el prefix. Vuelve a configurar (winetricks dxvk).";

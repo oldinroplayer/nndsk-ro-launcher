@@ -57,9 +57,7 @@ impl SpammerHandle {
 
         let mut config = config.clamped();
         config.enabled = true;
-        config
-            .validate_for_start()
-            .map_err(|e| e.to_string())?;
+        config.validate_for_start().map_err(|e| e.to_string())?;
         let (stop_tx, stop_rx) = watch::channel(false);
         *self.stop_tx.lock().unwrap() = Some(stop_tx);
 

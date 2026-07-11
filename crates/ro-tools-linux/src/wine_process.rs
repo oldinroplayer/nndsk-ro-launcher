@@ -8,11 +8,7 @@ pub struct GameProcessCandidate {
 }
 
 /// Resolve the PID of the RO client inside a Wine session.
-pub fn resolve_game_pid(
-    launcher_pid: u32,
-    exe_path: &str,
-    wine_prefix: &str,
-) -> Option<u32> {
+pub fn resolve_game_pid(launcher_pid: u32, exe_path: &str, wine_prefix: &str) -> Option<u32> {
     find_game_processes(launcher_pid, exe_path, wine_prefix)
         .into_iter()
         .next()
@@ -82,12 +78,7 @@ fn score_candidate(candidate: &GameProcessCandidate, launcher_pid: u32) -> u32 {
     u32::MAX - score
 }
 
-fn match_process(
-    pid: u32,
-    exe_name: &str,
-    prefix_norm: &str,
-    launcher_pid: u32,
-) -> Option<String> {
+fn match_process(pid: u32, exe_name: &str, prefix_norm: &str, launcher_pid: u32) -> Option<String> {
     let cmdline = read_proc_file(pid, "cmdline");
     if cmdline.is_empty() {
         return None;

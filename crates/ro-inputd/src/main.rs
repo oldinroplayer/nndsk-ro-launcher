@@ -281,9 +281,8 @@ fn main() {
     std::thread::spawn(move || {
         let mut signals =
             signal_hook::iterator::Signals::new([libc::SIGTERM, libc::SIGINT]).expect("signals");
-        for _ in signals.forever() {
+        if signals.forever().next().is_some() {
             shutdown_signal.store(true, Ordering::SeqCst);
-            break;
         }
     });
 
@@ -318,14 +317,12 @@ fn main() {
                                             }));
                                         }
                                     }
-                                    0 => {
-                                        if cfg.json {
-                                            emit_json(&serde_json::json!({
-                                                "type":"trigger",
-                                                "key": label,
-                                                "held": false,
-                                            }));
-                                        }
+                                    0 if cfg.json => {
+                                        emit_json(&serde_json::json!({
+                                            "type":"trigger",
+                                            "key": label,
+                                            "held": false,
+                                        }));
                                     }
                                     _ => {} // auto-repeat, ignorar
                                 }

@@ -14,6 +14,15 @@ import type {
   ToolKind,
   UninstallDgVoodooResult,
 } from './types'
+import {
+  validateAppSettings,
+  validateServerConfig,
+  validateServers,
+} from './contracts'
+
+function assertValid(error: string | null): void {
+  if (error) throw new Error(error)
+}
 
 export const api = {
   checkDependencies: (runner: string | null) =>
@@ -23,37 +32,53 @@ export const api = {
 
   resetPrefix: () => invoke<void>('reset_prefix'),
 
-  launchGame: (server: ServerConfig) =>
-    invoke<void>('launch_game', { server }),
+  launchGame: (server: ServerConfig) => {
+    assertValid(validateServerConfig(server))
+    return invoke<void>('launch_game', { server })
+  },
 
   stopGame: () => invoke<void>('stop_game'),
 
   listServers: () => invoke<ServerConfig[]>('list_servers'),
 
-  saveServers: (servers: ServerConfig[]) =>
-    invoke<void>('save_servers', { servers }),
+  saveServers: (servers: ServerConfig[]) => {
+    assertValid(validateServers(servers))
+    return invoke<void>('save_servers', { servers })
+  },
 
   loadSettings: () => invoke<AppSettings>('load_settings'),
 
-  saveSettings: (settings: AppSettings) =>
-    invoke<void>('save_settings', { settings }),
+  saveSettings: (settings: AppSettings) => {
+    assertValid(validateAppSettings(settings))
+    return invoke<void>('save_settings', { settings })
+  },
 
   listRunners: () => invoke<RunnerInfo[]>('list_runners'),
 
-  scanServerTools: (server: ServerConfig) =>
-    invoke<ServerToolsStatus>('scan_server_tools', { server }),
+  scanServerTools: (server: ServerConfig) => {
+    assertValid(validateServerConfig(server))
+    return invoke<ServerToolsStatus>('scan_server_tools', { server })
+  },
 
-  installDgVoodoo: (server: ServerConfig) =>
-    invoke<InstallDgVoodooResult>('install_dgvoodoo', { server }),
+  installDgVoodoo: (server: ServerConfig) => {
+    assertValid(validateServerConfig(server))
+    return invoke<InstallDgVoodooResult>('install_dgvoodoo', { server })
+  },
 
-  uninstallDgVoodoo: (server: ServerConfig) =>
-    invoke<UninstallDgVoodooResult>('uninstall_dgvoodoo', { server }),
+  uninstallDgVoodoo: (server: ServerConfig) => {
+    assertValid(validateServerConfig(server))
+    return invoke<UninstallDgVoodooResult>('uninstall_dgvoodoo', { server })
+  },
 
-  launchServerTool: (server: ServerConfig, tool: ToolKind) =>
-    invoke<void>('launch_server_tool', { server, tool }),
+  launchServerTool: (server: ServerConfig, tool: ToolKind) => {
+    assertValid(validateServerConfig(server))
+    return invoke<void>('launch_server_tool', { server, tool })
+  },
 
-  startAutopot: (server: ServerConfig) =>
-    invoke<void>('start_autopot', { server }),
+  startAutopot: (server: ServerConfig) => {
+    assertValid(validateServerConfig(server))
+    return invoke<void>('start_autopot', { server })
+  },
 
   stopAutopot: () => invoke<void>('stop_autopot'),
 
@@ -64,8 +89,10 @@ export const api = {
 
   listClientProfiles: () => invoke<ClientProfile[]>('list_client_profiles'),
 
-  startSpammer: (server: ServerConfig) =>
-    invoke<void>('start_spammer', { server }),
+  startSpammer: (server: ServerConfig) => {
+    assertValid(validateServerConfig(server))
+    return invoke<void>('start_spammer', { server })
+  },
 
   stopSpammer: () => invoke<void>('stop_spammer'),
 

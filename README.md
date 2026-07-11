@@ -152,6 +152,7 @@ Todo se guarda en `~/.local/share/ro-launcher/`:
 |-------------------|-----------|
 | `servers.json` | Lista de servidores configurados |
 | `settings.json` | Runner global por defecto |
+| `*.json.bak` | Copia de seguridad de la versión anterior de cada configuración |
 | `prefix/` | WINEPREFIX compartido |
 | `prefix/.ro-launcher-configured` | Marker de setup completado |
 

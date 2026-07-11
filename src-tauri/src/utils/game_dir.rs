@@ -43,9 +43,6 @@ mod tests {
 
     #[test]
     fn required_game_dir_accepts_valid_path() {
-        assert_eq!(
-            required_game_dir("/opt/ro/Ragexe.exe").unwrap(),
-            "/opt/ro"
-        );
+        assert_eq!(required_game_dir("/opt/ro/Ragexe.exe").unwrap(), "/opt/ro");
     }
 }

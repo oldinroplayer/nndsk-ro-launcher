@@ -5,10 +5,7 @@ use super::paths::app_data_dir;
 pub const PREFIX_MARKER: &str = ".ro-launcher-configured";
 
 pub fn prefix_path() -> String {
-    app_data_dir()
-        .join("prefix")
-        .to_string_lossy()
-        .to_string()
+    app_data_dir().join("prefix").to_string_lossy().to_string()
 }
 
 pub fn effective_prefix(wine_prefix: Option<String>) -> String {

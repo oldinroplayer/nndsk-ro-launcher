@@ -5,8 +5,8 @@
 pub mod audio;
 mod events;
 mod fs;
-pub mod gecko;
 mod game_dir;
+pub mod gecko;
 mod json;
 mod paths;
 mod prefix;
@@ -52,8 +52,11 @@ pub async fn drain_and_log(app: &AppHandle, child: &mut tokio::process::Child) {
 }
 
 /// Igual que [`drain_and_log`] pero con procesador custom para stderr (p. ej. hints de audio).
-pub async fn drain_child_output<F>(app: &AppHandle, child: &mut tokio::process::Child, stderr_lines: F)
-where
+pub async fn drain_child_output<F>(
+    app: &AppHandle,
+    child: &mut tokio::process::Child,
+    stderr_lines: F,
+) where
     F: Fn(&str) -> Vec<String> + Send + Sync + 'static,
 {
     let stdout = child.stdout.take();
