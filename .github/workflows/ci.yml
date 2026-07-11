@@ -32,5 +32,7 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: cargo fmt --all -- --check
+      - name: Build ro-inputd sidecar
+        run: cargo build -p ro-inputd
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
