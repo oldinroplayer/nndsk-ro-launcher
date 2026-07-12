@@ -94,11 +94,21 @@ export const DEFAULT_AUTOPOT_CONFIG = {
   proactiveMode: false,
 } as const
 
+export const DEFAULT_GEAR_SWITCH_CONFIG = {
+  enabled: false,
+  switchDelayMs: 50,
+  rules: [] as import('./types').GearSwitchRule[],
+} as const
+
 export const DEFAULT_SPAMMER_CONFIG = {
   enabled: false,
   delayMs: 10,
   keys: ['F1'],
+  gearSwitch: DEFAULT_GEAR_SWITCH_CONFIG,
 } as const
+
+export const GEAR_SWITCH_MIN_DELAY_MS = 10
+export const GEAR_SWITCH_MAX_DELAY_MS = 300
 
 export const DEFAULT_AUTOBUFF_CONFIG = {
   enabled: false,

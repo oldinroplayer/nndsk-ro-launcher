@@ -7,6 +7,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::watch;
 use tokio::time::{interval, MissedTickBehavior};
 
+use super::gear::{self, GearMode};
 use crate::models::spammer::SpammerStatusEvent;
 use crate::tools::input::{
     emit_status_if_changed, recover_ydotool_on_error, InputGateway, YdotoolDaemon,
@@ -72,6 +73,7 @@ fn build_status(
     error: Option<String>,
     active: bool,
     armed: bool,
+    gear_mode: Option<&str>,
 ) -> SpammerStatusEvent {
     SpammerStatusEvent {
         active,
@@ -81,6 +83,7 @@ fn build_status(
         delay_ms: config.delay_ms,
         cycle_count,
         error,
+        gear_mode: gear_mode.map(str::to_string),
     }
 }
 
@@ -115,7 +118,7 @@ pub async fn run(
                 &app,
                 &status_arc,
                 EVENT_SPAMMER_STATUS,
-                build_status(&config, "", 0, Some(msg), false, false),
+                build_status(&config, "", 0, Some(msg), false, false, None),
             );
             return;
         }
@@ -138,6 +141,7 @@ pub async fn run(
     let mut cycle_count: u64 = 0;
     let mut active_key = String::new();
     let mut held_keys: Vec<String> = Vec::new();
+    let mut gear_mode: Option<&'static str> = None;
     let mut ready_received = false;
     let mut last_ydotool_recovery = Instant::now()
         .checked_sub(Duration::from_secs(10))
@@ -161,12 +165,14 @@ pub async fn run(
                                 &app,
                                 &status_arc,
                                 EVENT_SPAMMER_STATUS,
-                                build_status(&config, "", 0, None, true, true),
+                                build_status(&config, "", 0, None, true, true, gear_mode),
                             );
                         }
                         Some(InputdMsg::TriggerHeld { key, held }) if ready_received => {
+                            let was_held = held_keys.iter().any(|k| k == &key);
+
                             if held {
-                                if !held_keys.iter().any(|k| k == &key) {
+                                if !was_held {
                                     held_keys.push(key.clone());
                                 }
                                 let was_active = !active_key.is_empty();
@@ -194,6 +200,60 @@ pub async fn run(
                                     }
                                 }
                             }
+
+                            // Gear switch: cada regla es edge-triggered por su propia tecla.
+                            // Press fresco → equipa ATK; release de una tecla presionada → DEF.
+                            let fresh_press = held && !was_held;
+                            let fresh_release = !held && was_held;
+                            if config.gear_switch.enabled && (fresh_press || fresh_release) {
+                                if let Some(rule) = config.gear_switch.rule_for(&key) {
+                                    let (keys, mode, label) = if fresh_press {
+                                        (rule.atk_keys.clone(), GearMode::Atk, "ATK")
+                                    } else {
+                                        (rule.def_keys.clone(), GearMode::Def, "DEF")
+                                    };
+                                    if !keys.is_empty() {
+                                        let switch_delay = config.gear_switch.switch_delay_ms;
+                                        let writer = gateway.writer();
+                                        let keys_log = keys.join("+");
+                                        let equip_result = tokio::task::spawn_blocking(
+                                            move || gear::equip(&writer, &keys, switch_delay),
+                                        )
+                                        .await;
+                                        match equip_result {
+                                            Ok(Ok(())) => {
+                                                gear_mode = Some(mode.as_str());
+                                                emit_tool_log_opt(
+                                                    Some(&app),
+                                                    format!(
+                                                        "[Spammer] Gear {label} {key}→{keys_log}"
+                                                    ),
+                                                );
+                                            }
+                                            Ok(Err(e)) => {
+                                                let err_msg = e.to_string();
+                                                recover_ydotool_on_error(
+                                                    &app,
+                                                    &gateway,
+                                                    ydotoold.as_ref(),
+                                                    &mut last_ydotool_recovery,
+                                                    err_msg.as_str(),
+                                                    "[Input] ydotoold recuperado (gear)",
+                                                )
+                                                .await;
+                                            }
+                                            Err(e) => {
+                                                emit_tool_log_opt(
+                                                    Some(&app),
+                                                    format!("[Spammer] ERROR gear (join): {e}"),
+                                                );
+                                            }
+                                        }
+                                    } else {
+                                        gear_mode = Some(mode.as_str());
+                                    }
+                                }
+                            }
                         }
                         Some(InputdMsg::Fatal(msg)) => {
                             emit_tool_log_opt(Some(&app), format!("[Spammer] Fatal ro-inputd: {msg}"));
@@ -208,6 +268,7 @@ pub async fn run(
                                     Some(msg),
                                     false,
                                     false,
+                                    None,
                                 ),
                             );
                             break 'main;
@@ -228,6 +289,7 @@ pub async fn run(
                                 Some(msg),
                                 false,
                                 false,
+                                None,
                             ),
                         );
                         break 'main;
@@ -281,6 +343,7 @@ pub async fn run(
                                     Some(err_msg),
                                     true,
                                     true,
+                                    gear_mode,
                                 ),
                             );
                             continue 'main;
@@ -306,6 +369,7 @@ pub async fn run(
                         None,
                         true,
                         true,
+                        gear_mode,
                     ),
                 );
             }
@@ -323,6 +387,7 @@ pub async fn run(
                         Some(msg),
                         false,
                         false,
+                        None,
                     ),
                 );
                 break 'main;
@@ -345,7 +410,7 @@ pub async fn run(
         &app,
         &status_arc,
         EVENT_SPAMMER_STATUS,
-        build_status(&config, "", cycle_count, None, false, false),
+        build_status(&config, "", cycle_count, None, false, false, None),
     );
 }
 

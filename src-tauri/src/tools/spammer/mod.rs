@@ -1,3 +1,4 @@
+mod gear;
 mod loop_runner;
 mod service;
 mod session;

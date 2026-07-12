@@ -91,6 +91,7 @@ mod tests {
                 enabled: true,
                 delay_ms: 10,
                 keys: vec!["F2".into()],
+                gear_switch: Default::default(),
             },
         );
 

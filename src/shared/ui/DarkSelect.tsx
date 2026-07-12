@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { ChevronDown } from 'lucide-react'
 
 interface Option {
   value: string
@@ -11,6 +12,9 @@ interface Props {
   options: Option[]
   onChange: (value: string) => void
   disabled?: boolean
+  compact?: boolean
+  keycap?: boolean
+  placeholder?: string
 }
 
 interface MenuPosition {
@@ -18,6 +22,7 @@ interface MenuPosition {
   left: number
   width: number
   maxHeight: number
+  openUp: boolean
 }
 
 const MENU_GAP_PX = 4
@@ -39,13 +44,22 @@ function measureMenuPosition(trigger: HTMLElement): MenuPosition {
     left: rect.left,
     width: rect.width,
     maxHeight,
+    openUp,
     top: openUp
       ? Math.max(VIEWPORT_PADDING_PX, rect.top - MENU_GAP_PX - maxHeight)
       : rect.bottom + MENU_GAP_PX,
   }
 }
 
-export function DarkSelect({ value, options, onChange, disabled = false }: Props) {
+export function DarkSelect({
+  value,
+  options,
+  onChange,
+  disabled = false,
+  compact = false,
+  keycap = false,
+  placeholder = 'Seleccionar...',
+}: Props) {
   const [open, setOpen] = useState(false)
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -103,7 +117,9 @@ export function DarkSelect({ value, options, onChange, disabled = false }: Props
               width: menuPosition.width,
               maxHeight: menuPosition.maxHeight,
             }}
-            className="z-[200] py-1 rounded-lg border border-zinc-700 bg-zinc-950 shadow-xl shadow-black/50 overflow-y-auto overscroll-contain"
+            className={`z-[200] py-1 rounded-lg border border-white/[0.08] bg-zinc-950/90 backdrop-blur-sm shadow-glass overflow-y-auto overscroll-contain animate-scale-in ${
+              menuPosition.openUp ? 'origin-bottom' : 'origin-top'
+            }`}
           >
             {options.map((option) => {
               const isSelected = option.value === value
@@ -115,10 +131,10 @@ export function DarkSelect({ value, options, onChange, disabled = false }: Props
                       onChange(option.value)
                       setOpen(false)
                     }}
-                    className={`w-full text-left px-3 py-2 text-sm transition-colors truncate
+                    className={`w-full text-left transition-colors truncate ${compact ? 'px-2 py-1.5 text-[11px]' : 'px-3 py-2 text-sm'}
                       ${isSelected
                         ? 'bg-amber-600/25 text-amber-200'
-                        : 'bg-zinc-950 text-zinc-200 hover:bg-zinc-800 hover:text-zinc-100'
+                        : 'text-zinc-200 hover:bg-zinc-800/80 hover:text-zinc-100'
                       }`}
                   >
                     {option.label}
@@ -140,18 +156,19 @@ export function DarkSelect({ value, options, onChange, disabled = false }: Props
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => !disabled && setOpen((v) => !v)}
-        className="w-full flex items-center justify-between gap-2 bg-zinc-950 border border-zinc-700/80
-          text-zinc-100 text-sm rounded-lg px-3 py-2 text-left
-          hover:border-zinc-600 focus:outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/20
-          transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-zinc-700/80"
+        className={`w-full flex items-center justify-between border text-left focus:outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/20
+          transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed
+          ${keycap
+            ? 'border-amber-500/20 bg-amber-500/[0.04] font-medium text-amber-100/90 hover:border-amber-500/40 hover:bg-amber-500/[0.07] disabled:hover:border-amber-500/20'
+            : 'border-zinc-700/80 bg-zinc-950 text-zinc-100 hover:border-zinc-600 disabled:hover:border-zinc-700/80'
+          }
+          ${compact ? 'gap-1 rounded-md px-2 py-1 text-[11px]' : 'gap-2 rounded-lg px-3 py-2 text-sm'}`}
       >
-        <span className="truncate">{selected?.label ?? 'Seleccionar...'}</span>
-        <span
-          className={`text-zinc-500 text-[10px] shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+        <span className="truncate">{selected?.label ?? placeholder}</span>
+        <ChevronDown
+          className={`w-3.5 h-3.5 text-zinc-500 shrink-0 transition-transform duration-200 ease-out-quart ${open ? 'rotate-180' : ''}`}
           aria-hidden
-        >
-          ▼
-        </span>
+        />
       </button>
       {menu}
     </div>

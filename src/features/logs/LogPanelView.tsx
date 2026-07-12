@@ -86,7 +86,7 @@ export function LogPanelView({
         ) : undefined
       }
     >
-      <div className="flex-1 min-h-0 bg-zinc-950/50 rounded-lg border border-zinc-800/60 overflow-y-auto font-mono text-[11px] leading-relaxed px-3 py-2">
+      <div className="flex-1 min-h-0 bg-zinc-950/50 rounded-lg border border-white/[0.04] overflow-y-auto font-mono text-[11px] leading-relaxed px-3 py-2">
         {logs.length === 0 ? (
           <p className="text-zinc-600 select-none">{emptyLabel}</p>
         ) : (

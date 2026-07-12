@@ -17,5 +17,5 @@ pub use domain::ClientProfile;
 pub use error::ToolsError;
 pub use ports::{InputWriter, MemoryReader};
 pub use profiles::{parse_hex, parse_profiles_json, resolve_profile};
-pub use spammer::config::SpammerConfig;
+pub use spammer::config::{GearSwitchConfig, GearSwitchRule, SpammerConfig};
 pub use spammer::engine::{SpammerEngine, SpammerTick};

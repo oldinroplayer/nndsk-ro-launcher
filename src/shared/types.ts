@@ -39,10 +39,23 @@ export interface AutopotStatusEvent {
   error?: string | null
 }
 
+export interface GearSwitchRule {
+  trigger: string // tecla del spammer que activa la regla
+  atkKeys: string[] // se equipan al presionar
+  defKeys: string[] // se equipan al soltar
+}
+
+export interface GearSwitchConfig {
+  enabled: boolean
+  switchDelayMs: number
+  rules: GearSwitchRule[]
+}
+
 export interface SpammerConfig {
   enabled: boolean
   delayMs: number
   keys: string[]
+  gearSwitch: GearSwitchConfig
 }
 
 export interface AutobuffRule {
@@ -77,6 +90,7 @@ export interface SpammerStatusEvent {
   delayMs: number
   cycleCount: number
   error?: string | null
+  gearMode?: 'atk' | 'def' | null
 }
 
 export interface ServerConfig {

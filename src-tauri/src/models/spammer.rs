@@ -11,6 +11,9 @@ pub struct SpammerStatusEvent {
     pub delay_ms: u64,
     pub cycle_count: u64,
     pub error: Option<String>,
+    /// Modo de equipo activo del gear switch: "atk", "def" o None si está desactivado.
+    #[serde(default)]
+    pub gear_mode: Option<String>,
 }
 
 impl Default for SpammerStatusEvent {
@@ -23,6 +26,7 @@ impl Default for SpammerStatusEvent {
             delay_ms: SpammerConfig::default().delay_ms,
             cycle_count: 0,
             error: None,
+            gear_mode: None,
         }
     }
 }

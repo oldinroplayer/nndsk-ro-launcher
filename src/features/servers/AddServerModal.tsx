@@ -57,10 +57,10 @@ export function AddServerModal({ onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-zinc-900 border border-zinc-700/80 rounded-2xl p-6 w-[420px] flex flex-col gap-4 shadow-2xl shadow-black/40">
+      <div className="border border-white/[0.08] bg-gradient-to-b from-zinc-800/90 to-zinc-900/95 rounded-2xl p-6 w-[420px] flex flex-col gap-4 shadow-glass shadow-2xl animate-scale-in">
         <div>
           <h3 className="text-zinc-100 font-semibold text-lg">Agregar servidor</h3>
           <p className="text-xs text-zinc-500 mt-1">Selecciona el .exe del cliente de Ragnarok Online</p>
@@ -107,15 +107,15 @@ export function AddServerModal({ onClose }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl text-sm text-zinc-400 hover:text-zinc-100 border border-zinc-700/80 hover:border-zinc-500 transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm text-zinc-400 hover:text-zinc-100 border border-zinc-700/80 hover:border-zinc-500 transition-colors motion-safe:active:scale-[0.98]"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={!name.trim() || !exePath.trim() || saving}
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-400 text-zinc-950
-                disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-400 text-zinc-950 hover:shadow-glow-amber
+                disabled:opacity-40 disabled:cursor-not-allowed transition-[background-color,box-shadow,transform] motion-safe:active:scale-[0.98]"
             >
               {saving ? 'Guardando...' : 'Agregar'}
             </button>

@@ -1,9 +1,14 @@
 import { useCallback } from 'react'
-import { Panel, type PanelTone } from '../../shared/ui/Panel'
+import { Sparkles, X } from 'lucide-react'
+import { Panel, resolveToolTone } from '../../shared/ui/Panel'
 import { ToggleSwitch } from '../../shared/ui/ToggleSwitch'
 import { DarkSelect } from '../../shared/ui/DarkSelect'
+import { Button } from '../../shared/ui/Button'
+import { Checkbox } from '../../shared/ui/Checkbox'
 import { SPAMMER_KEYS } from '../../shared/constants'
 import { useSelectedServer } from '../servers/useSelectedServer'
+import { useLauncherStore } from '../launcher/launcher.store'
+import { useUiModeStore } from '../../app/uiMode.store'
 import { useAutobuff } from './useAutobuff'
 import type { AutobuffRule } from '../../shared/types'
 
@@ -41,23 +46,13 @@ function makeRule(): AutobuffRule {
   return { id, label: 'Nuevo buff', statusId: 1, key: 'F1', cooldownMs: 1000, priority: 100, enabled: false }
 }
 
-function resolveTone(
-  available: boolean,
-  enabled: boolean,
-  active: boolean,
-  hasError: boolean,
-): PanelTone {
-  if (hasError) return 'danger'
-  if (!available) return 'idle'
-  if (enabled && active) return 'success'
-  return 'neutral'
-}
-
 export function AutobuffPanel() {
   const server = useSelectedServer()
   const { config, status, busy, isRunning, error, setEnabled, updateField } = useAutobuff(server)
+  const launching = useLauncherStore((s) => s.status === 'launching')
+  const hero = useUiModeStore((s) => s.mode === 'ingame')
   const available = isRunning && !!server
-  const tone = resolveTone(available, config.enabled, status.active, !!error)
+  const tone = resolveToolTone(available, config.enabled && status.active, !!error)
   const replaceRules = useCallback((rules: AutobuffRule[]) => void updateField({ rules }), [updateField])
   const hasStatusId = (statusId: number, exceptId?: string) => config.rules.some((rule) => rule.id !== exceptId && rule.statusId === statusId)
   const addPreset = (preset: Omit<AutobuffRule, 'id'>) => {
@@ -73,41 +68,76 @@ export function AutobuffPanel() {
   }
 
   return (
-    <Panel title="AutoBuff" compact tone={tone} className="h-full">
-      <div className="space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <p className="text-sm font-semibold text-zinc-100">{status.lastAppliedRule ?? 'Sin buffs aplicados'}</p>
-            <p className="text-[10px] text-zinc-600">{available ? `${status.activeStatuses} estados detectados` : server ? 'Inicia el juego' : 'Selecciona un servidor'}</p>
+    <Panel
+      title="AutoBuff"
+      compact
+      hero={hero}
+      tone={tone}
+      className="h-full w-full"
+      leading={<Sparkles className="w-3 h-3 text-zinc-600 shrink-0" aria-hidden />}
+    >
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
+        <div className="flex shrink-0 items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-zinc-100">{status.lastAppliedRule ?? 'Sin buffs aplicados'}</p>
+            <p className={`text-[10px] ${launching ? 'text-zinc-500 animate-pulse-dot' : 'text-zinc-600'}`}>
+              {!server
+                ? 'Selecciona un servidor'
+                : launching
+                  ? 'Iniciando juego...'
+                  : !isRunning
+                    ? 'Inicia el juego'
+                    : `${status.activeStatuses} estados detectados`}
+            </p>
           </div>
           <ToggleSwitch checked={config.enabled && available && config.rules.some((rule) => rule.enabled)} disabled={!available || busy || !config.rules.some((rule) => rule.enabled)} onChange={(enabled) => void setEnabled(enabled)} tone="emerald" />
         </div>
 
-        <div className="space-y-1.5">
+        <div className="shrink-0 space-y-1.5">
           {PRESET_GROUPS.map((group) => (
             <div key={group.label}>
-              <p className="mb-0.5 text-[9px] uppercase tracking-wide text-zinc-600">{group.label}</p>
+              <p className="mb-0.5 text-[10px] uppercase tracking-wide text-zinc-600">{group.label}</p>
               <div className="flex flex-wrap gap-1">
-                {group.presets.map((preset) => <button key={preset.label} type="button" disabled={!server || busy || hasStatusId(preset.statusId)} onClick={() => addPreset(preset)} className="rounded border border-zinc-700/80 px-1.5 py-1 text-[10px] text-zinc-400 hover:text-amber-200 disabled:opacity-40">+ {preset.label}</button>)}
+                {group.presets.map((preset) => <Button key={preset.label} variant="secondary" size="xs" disabled={!server || busy || hasStatusId(preset.statusId)} onClick={() => addPreset(preset)}>+ {preset.label}</Button>)}
               </div>
             </div>
           ))}
-          <button type="button" disabled={!server || busy || hasStatusId(1)} onClick={() => replaceRules([...config.rules, makeRule()])} className="rounded border border-amber-500/40 px-1.5 py-1 text-[10px] text-amber-300 disabled:opacity-40">+ Manual</button>
+          <Button variant="primary" size="xs" disabled={!server || busy || hasStatusId(1)} onClick={() => replaceRules([...config.rules, makeRule()])}>+ Manual</Button>
         </div>
 
-        <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-zinc-800/60 bg-zinc-950/30 p-1.5">
-          {config.rules.length === 0 ? <p className="px-1 py-2 text-[10px] text-zinc-600">Añade un preset o una regla manual.</p> : config.rules.map((rule) => (
-            <div key={rule.id} className="grid grid-cols-[18px_1fr_45px_34px_18px] items-center gap-1">
-              <input type="checkbox" checked={rule.enabled} disabled={!server || busy} onChange={(e) => updateRule(rule.id, { enabled: e.target.checked })} />
-              <input value={rule.label} disabled={!server || busy} onChange={(e) => updateRule(rule.id, { label: e.target.value })} className="min-w-0 rounded border border-zinc-800 bg-zinc-950 px-1 py-1 text-[10px] text-zinc-300" />
-              <input type="number" value={rule.statusId} disabled={!server || busy} onChange={(e) => updateRule(rule.id, { statusId: Number(e.target.value) || 0 })} title="Status ID" className="w-full rounded border border-zinc-800 bg-zinc-950 px-1 py-1 text-[10px] text-zinc-300" />
-              <DarkSelect value={rule.key} disabled={!server || busy} onChange={(key) => updateRule(rule.id, { key })} options={KEY_OPTIONS} />
-              <button type="button" disabled={!server || busy} onClick={() => replaceRules(config.rules.filter((item) => item.id !== rule.id))} className="text-xs text-zinc-600 hover:text-red-400 disabled:opacity-40">×</button>
-            </div>
-          ))}
+        <div className="min-h-14 flex-1 space-y-1 overflow-y-auto rounded-lg border border-zinc-800/60 bg-zinc-950/40 p-1.5">
+          {config.rules.length === 0 ? <p className="px-1 py-2 text-[10px] text-zinc-600">Añade un preset o una regla manual.</p> : (
+            <>
+              <div className="grid grid-cols-[16px_minmax(0,1fr)_68px_84px_64px_20px] items-center gap-1.5 px-2 text-[9px] uppercase tracking-wide text-zinc-600">
+                <span />
+                <span>Buff</span>
+                <span className="text-center">Tecla</span>
+                <span className="text-center">Cooldown</span>
+                <span className="text-center">Prioridad</span>
+                <span />
+              </div>
+              {config.rules.map((rule) => (
+                <div key={rule.id} className="group grid grid-cols-[16px_minmax(0,1fr)_68px_84px_64px_20px] items-center gap-1.5 rounded-md border border-white/[0.04] bg-zinc-950/35 px-2 py-1 transition-colors hover:border-white/[0.07] hover:bg-zinc-900/45">
+                  <Checkbox checked={rule.enabled} disabled={!server || busy} onChange={(enabled) => updateRule(rule.id, { enabled })} label={`${rule.enabled ? 'Desactivar' : 'Activar'} ${rule.label}`} />
+                  <input value={rule.label} disabled={!server || busy} onChange={(e) => updateRule(rule.id, { label: e.target.value })} className="min-w-0 rounded border border-transparent bg-transparent px-1.5 py-1 text-[10px] font-medium text-zinc-300 outline-none transition-colors hover:bg-white/[0.025] focus:border-amber-500/25 focus:bg-zinc-950/60 focus:ring-1 focus:ring-amber-500/10" />
+                  <DarkSelect compact keycap value={rule.key} disabled={!server || busy} onChange={(key) => updateRule(rule.id, { key })} options={KEY_OPTIONS} />
+                  <div className="flex items-center gap-0.5">
+                    <input type="number" min={0} step={100} value={rule.cooldownMs} disabled={!server || busy} onChange={(e) => updateRule(rule.id, { cooldownMs: Math.max(0, Number(e.target.value) || 0) })} className="min-w-0 flex-1 rounded border border-transparent bg-zinc-950/40 px-1 py-1 text-right text-[10px] text-zinc-300 outline-none transition-colors hover:bg-white/[0.025] focus:border-amber-500/25 focus:bg-zinc-950/60 focus:ring-1 focus:ring-amber-500/10 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" aria-label={`Cooldown de ${rule.label} en ms`} />
+                    <span className="text-[9px] text-zinc-600">ms</span>
+                  </div>
+                  <input type="number" min={0} step={1} value={rule.priority} disabled={!server || busy} onChange={(e) => updateRule(rule.id, { priority: Math.max(0, Number(e.target.value) || 0) })} className="min-w-0 rounded border border-transparent bg-zinc-950/40 px-1 py-1 text-center text-[10px] text-zinc-300 outline-none transition-colors hover:bg-white/[0.025] focus:border-amber-500/25 focus:bg-zinc-950/60 focus:ring-1 focus:ring-amber-500/10 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" aria-label={`Prioridad de ${rule.label}`} />
+                  <button type="button" disabled={!server || busy} onClick={() => replaceRules(config.rules.filter((item) => item.id !== rule.id))} className="flex h-5 w-5 items-center justify-center rounded text-zinc-700 opacity-50 transition-[color,background-color,opacity] hover:bg-red-500/10 hover:text-red-400 hover:opacity-100 group-hover:opacity-80 disabled:opacity-30" title="Eliminar regla" aria-label={`Eliminar ${rule.label}`}><X className="w-3 h-3" /></button>
+                </div>
+              ))}
+            </>
+          )}
         </div>
-        <p className="text-[10px] text-zinc-600">Un status ID solo puede tener una tecla. Escanea HP + 0x474 cada {config.delayMs}ms.</p>
-        <p className="min-h-[calc(1em*1.375)] text-[10px] text-red-400/90">{error && available ? error : ''}</p>
+        <p className="shrink-0 text-[10px] leading-snug text-zinc-600">Activa cada buff y asigna la tecla donde lo tienes configurado en el juego.</p>
+        <p className="shrink-0 text-[10px] leading-snug min-h-[calc(1em*1.375)]">
+          {error && available
+            ? <span className="text-red-400/90">{error}</span>
+            : null}
+        </p>
       </div>
     </Panel>
   )
