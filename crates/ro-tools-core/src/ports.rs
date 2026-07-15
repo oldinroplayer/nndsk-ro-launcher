@@ -15,25 +15,15 @@ pub trait MemoryReader: Send + Sync {
     fn read_string(&self, address: u32, max_len: usize) -> Result<String, ToolsError>;
 }
 
-pub trait InputWriter: Send + Sync {
+pub trait KeyPressWriter: Send + Sync {
     fn press_key(&self, key: &str) -> Result<(), ToolsError>;
+}
 
-    /// Solo key-down (sin release). No-op por defecto — impls que lo necesitan deben sobreescribir.
-    fn key_down(&self, key: &str) -> Result<(), ToolsError> {
-        Err(ToolsError::Input {
-            key: key.to_string(),
-            message: "key_down no implementado".into(),
-        })
-    }
+pub trait HeldKeyWriter: Send + Sync {
+    fn key_down(&self, key: &str) -> Result<(), ToolsError>;
+    fn key_up(&self, key: &str) -> Result<(), ToolsError>;
+}
 
-    /// Solo key-up (sin press). No-op por defecto — solo lo necesita el spammer con grab.
-    fn key_up(&self, key: &str) -> Result<(), ToolsError> {
-        let _ = key;
-        Ok(())
-    }
-
-    /// Left mouse click (down + up). No-op by default for adapters that only emit keys.
-    fn click_left(&self) -> Result<(), ToolsError> {
-        Ok(())
-    }
+pub trait PointerWriter: Send + Sync {
+    fn click_left(&self) -> Result<(), ToolsError>;
 }

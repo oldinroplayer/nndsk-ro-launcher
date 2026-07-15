@@ -1,5 +1,5 @@
 use crate::error::ToolsError;
-use crate::ports::InputWriter;
+use crate::ports::{HeldKeyWriter, PointerWriter};
 use crate::spammer::config::SpammerConfig;
 use crate::spammer::keys::is_valid_spammer_key;
 
@@ -8,12 +8,12 @@ pub struct SpammerTick {
     pub cycled: bool,
 }
 
-pub struct SpammerEngine<I: InputWriter> {
+pub struct SpammerEngine<I: HeldKeyWriter + PointerWriter> {
     input: I,
     config: SpammerConfig,
 }
 
-impl<I: InputWriter> SpammerEngine<I> {
+impl<I: HeldKeyWriter + PointerWriter> SpammerEngine<I> {
     pub fn new(input: I, config: SpammerConfig) -> Self {
         Self {
             input,
@@ -51,14 +51,14 @@ impl<I: InputWriter> SpammerEngine<I> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ports::InputWriter;
+    use crate::ports::{HeldKeyWriter, PointerWriter};
     use std::sync::Mutex;
 
     struct MockInput {
         log: Mutex<Vec<String>>,
     }
 
-    impl InputWriter for MockInput {
+    impl HeldKeyWriter for MockInput {
         fn key_down(&self, key: &str) -> Result<(), ToolsError> {
             self.log.lock().unwrap().push(format!("down:{key}"));
             Ok(())
@@ -68,12 +68,9 @@ mod tests {
             self.log.lock().unwrap().push(format!("up:{key}"));
             Ok(())
         }
+    }
 
-        fn press_key(&self, key: &str) -> Result<(), ToolsError> {
-            self.log.lock().unwrap().push(format!("key:{key}"));
-            Ok(())
-        }
-
+    impl PointerWriter for MockInput {
         fn click_left(&self) -> Result<(), ToolsError> {
             self.log.lock().unwrap().push("click".into());
             Ok(())

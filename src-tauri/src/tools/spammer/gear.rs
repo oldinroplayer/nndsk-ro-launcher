@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use ro_tools_core::{InputWriter, ToolsError};
+use ro_tools_core::{KeyPressWriter, ToolsError};
 
 use crate::tools::input::GatewayWriter;
 

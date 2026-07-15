@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
-use crate::{AutobuffConfig, ClientProfile, InputWriter, MemoryReader, ToolsError};
+use crate::{AutobuffConfig, ClientProfile, KeyPressWriter, MemoryReader, ToolsError};
 
 const STATUS_SLOTS: usize = 100;
 const QUAGMIRE: u32 = 8;
@@ -15,7 +15,7 @@ pub struct AutobuffTick {
     pub applied_rule: Option<String>,
 }
 
-pub struct AutobuffEngine<M: MemoryReader, I: InputWriter> {
+pub struct AutobuffEngine<M: MemoryReader, I: KeyPressWriter> {
     memory: M,
     input: I,
     config: AutobuffConfig,
@@ -23,7 +23,7 @@ pub struct AutobuffEngine<M: MemoryReader, I: InputWriter> {
     last_used: HashMap<String, Instant>,
 }
 
-impl<M: MemoryReader, I: InputWriter> AutobuffEngine<M, I> {
+impl<M: MemoryReader, I: KeyPressWriter> AutobuffEngine<M, I> {
     pub fn new(memory: M, input: I, config: AutobuffConfig, profile: ClientProfile) -> Self {
         Self {
             memory,
@@ -97,7 +97,7 @@ mod tests {
         }
     }
     struct Input(Mutex<Vec<String>>);
-    impl InputWriter for Input {
+    impl KeyPressWriter for Input {
         fn press_key(&self, key: &str) -> Result<(), ToolsError> {
             self.0.lock().unwrap().push(key.into());
             Ok(())

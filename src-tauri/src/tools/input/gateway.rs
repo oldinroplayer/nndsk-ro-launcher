@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use ro_tools_core::{InputWriter, ToolsError};
+use ro_tools_core::{HeldKeyWriter, KeyPressWriter, PointerWriter, ToolsError};
 use ro_tools_linux::LazyYdotoolInput;
 
 /// Cola global de input: serializa ydotool entre AutoPot, Spammer y futuro AutoBuff.
@@ -30,7 +30,7 @@ impl InputGateway {
 #[derive(Clone)]
 pub struct GatewayWriter(Arc<Mutex<LazyYdotoolInput>>);
 
-impl InputWriter for GatewayWriter {
+impl KeyPressWriter for GatewayWriter {
     fn press_key(&self, key: &str) -> Result<(), ToolsError> {
         let guard = self
             .0
@@ -38,7 +38,9 @@ impl InputWriter for GatewayWriter {
             .map_err(|_| ToolsError::Other("input gateway lock poisoned".into()))?;
         guard.press_key(key)
     }
+}
 
+impl PointerWriter for GatewayWriter {
     fn click_left(&self) -> Result<(), ToolsError> {
         let guard = self
             .0
@@ -46,7 +48,9 @@ impl InputWriter for GatewayWriter {
             .map_err(|_| ToolsError::Other("input gateway lock poisoned".into()))?;
         guard.click_left()
     }
+}
 
+impl HeldKeyWriter for GatewayWriter {
     fn key_down(&self, key: &str) -> Result<(), ToolsError> {
         let guard = self
             .0

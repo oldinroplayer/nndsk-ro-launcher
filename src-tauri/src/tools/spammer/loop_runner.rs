@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use ro_tools_core::{InputWriter, SpammerConfig, SpammerEngine};
+use ro_tools_core::{HeldKeyWriter, SpammerConfig, SpammerEngine};
 use tauri::AppHandle;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::watch;

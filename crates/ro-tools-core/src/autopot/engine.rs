@@ -1,7 +1,7 @@
 use crate::autopot::config::AutopotConfig;
 use crate::domain::ClientProfile;
 use crate::error::ToolsError;
-use crate::ports::{InputWriter, MemoryReader};
+use crate::ports::{KeyPressWriter, MemoryReader};
 
 /// Snapshot after one autopot cycle (DT_AP logic).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -17,7 +17,7 @@ pub struct AutopotTick {
     pub proactive_hp_pulse: bool,
 }
 
-pub struct AutopotEngine<M: MemoryReader, I: InputWriter> {
+pub struct AutopotEngine<M: MemoryReader, I: KeyPressWriter> {
     memory: M,
     input: I,
     config: AutopotConfig,
@@ -27,7 +27,7 @@ pub struct AutopotEngine<M: MemoryReader, I: InputWriter> {
     cached_name: String,
 }
 
-impl<M: MemoryReader, I: InputWriter> AutopotEngine<M, I> {
+impl<M: MemoryReader, I: KeyPressWriter> AutopotEngine<M, I> {
     pub fn new(memory: M, input: I, config: AutopotConfig, profile: ClientProfile) -> Self {
         Self {
             memory,
@@ -128,7 +128,7 @@ impl<M: MemoryReader, I: InputWriter> AutopotEngine<M, I> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ports::{InputWriter, MemoryReader};
+    use crate::ports::{KeyPressWriter, MemoryReader};
     use std::collections::HashMap;
     use std::sync::Mutex;
 
@@ -154,7 +154,7 @@ mod tests {
         pressed: Mutex<Vec<String>>,
     }
 
-    impl InputWriter for MockInput {
+    impl KeyPressWriter for MockInput {
         fn press_key(&self, key: &str) -> Result<(), ToolsError> {
             self.pressed.lock().unwrap().push(key.to_string());
             Ok(())

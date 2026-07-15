@@ -1,5 +1,5 @@
 use crate::keyboard::key_label_to_keycode;
-use ro_tools_core::{InputWriter, ToolsError};
+use ro_tools_core::{HeldKeyWriter, KeyPressWriter, PointerWriter, ToolsError};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
@@ -109,7 +109,7 @@ impl YdotoolInput {
     }
 }
 
-impl InputWriter for YdotoolInput {
+impl KeyPressWriter for YdotoolInput {
     fn press_key(&self, key: &str) -> Result<(), ToolsError> {
         let code = key_to_code(key).ok_or_else(|| ToolsError::Input {
             key: key.to_string(),
@@ -128,7 +128,9 @@ impl InputWriter for YdotoolInput {
             message: e.to_string(),
         })
     }
+}
 
+impl PointerWriter for YdotoolInput {
     fn click_left(&self) -> Result<(), ToolsError> {
         // 4RTools: LBUTTONDOWN → 1ms → LBUTTONUP (separado, no 0xC0 atómico)
         self.run(&["click", "-d", "1", "0x40"])
@@ -143,7 +145,9 @@ impl InputWriter for YdotoolInput {
                 message: e.to_string(),
             })
     }
+}
 
+impl HeldKeyWriter for YdotoolInput {
     fn key_down(&self, key: &str) -> Result<(), ToolsError> {
         let code = key_to_code(key).ok_or_else(|| ToolsError::Input {
             key: key.to_string(),
@@ -196,7 +200,7 @@ impl Default for LazyYdotoolInput {
     }
 }
 
-impl InputWriter for LazyYdotoolInput {
+impl KeyPressWriter for LazyYdotoolInput {
     fn press_key(&self, key: &str) -> Result<(), ToolsError> {
         let mut guard = self
             .inner
@@ -207,7 +211,9 @@ impl InputWriter for LazyYdotoolInput {
         }
         guard.as_ref().unwrap().press_key(key)
     }
+}
 
+impl PointerWriter for LazyYdotoolInput {
     fn click_left(&self) -> Result<(), ToolsError> {
         let mut guard = self
             .inner
@@ -218,7 +224,9 @@ impl InputWriter for LazyYdotoolInput {
         }
         guard.as_ref().unwrap().click_left()
     }
+}
 
+impl HeldKeyWriter for LazyYdotoolInput {
     fn key_down(&self, key: &str) -> Result<(), ToolsError> {
         let mut guard = self
             .inner
