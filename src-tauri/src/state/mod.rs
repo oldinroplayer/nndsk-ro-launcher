@@ -1,4 +1,8 @@
+mod game_process;
+
 use std::sync::{Arc, Mutex};
+
+pub use game_process::{GameProcessHandle, LaunchReservation};
 
 use crate::tools::autobuff::AutobuffHandle;
 use crate::tools::autopot::AutopotHandle;
@@ -7,7 +11,7 @@ use crate::tools::spammer::SpammerHandle;
 
 /// Estado compartido de la app entre comandos Tauri (juego, tools, input).
 pub struct GameState {
-    pub pid: Arc<Mutex<Option<u32>>>,
+    pub game: GameProcessHandle,
     pub autopot: AutopotHandle,
     pub autobuff: AutobuffHandle,
     pub spammer: SpammerHandle,

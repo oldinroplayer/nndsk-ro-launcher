@@ -1,9 +1,7 @@
-use std::sync::Arc;
-
 use tauri::{AppHandle, Emitter};
 
 use crate::models::server::ServerConfig;
-use crate::state::GameState;
+use crate::state::{GameProcessHandle, GameState, LaunchReservation};
 use crate::tools::autobuff::AutobuffHandle;
 use crate::tools::autopot::AutopotHandle;
 use crate::tools::spammer::SpammerHandle;
@@ -17,7 +15,8 @@ use crate::utils::{
 
 pub async fn launch_game(
     app: AppHandle,
-    pid_slot: &Arc<std::sync::Mutex<Option<u32>>>,
+    game: GameProcessHandle,
+    reservation: LaunchReservation,
     autopot: &AutopotHandle,
     autobuff: &AutobuffHandle,
     spammer: &SpammerHandle,
@@ -49,16 +48,18 @@ pub async fn launch_game(
         .spawn()
         .map_err(|e| format!("Error al lanzar el juego: {e}"))?;
 
-    let launcher_pid = child.id();
-    if let Some(pid) = launcher_pid {
-        *pid_slot.lock().unwrap() = Some(pid);
-        emit_tool_log_opt(
-            Some(&app),
-            format!("[Launch] Wine PID={pid} prefix={}", ctx.prefix),
-        );
+    let launcher_pid = child
+        .id()
+        .ok_or_else(|| "Wine no informó el PID del proceso".to_string())?;
+    if let Err(error) = game.mark_running(reservation, launcher_pid) {
+        let _ = child.kill().await;
+        return Err(error);
     }
+    emit_tool_log_opt(
+        Some(&app),
+        format!("[Launch] Wine PID={launcher_pid} prefix={}", ctx.prefix),
+    );
 
-    let pid_state = Arc::clone(pid_slot);
     let autopot = autopot.clone();
     let autobuff = autobuff.clone();
     let spammer = spammer.clone();
@@ -77,8 +78,9 @@ pub async fn launch_game(
             .await
             .map(|s| s.code().unwrap_or(-1))
             .unwrap_or(-1);
-        *pid_state.lock().unwrap() = None;
-        let _ = app_for_exit.emit(EVENT_GAME_EXIT, ExitEvent { code });
+        if game.finish(reservation) {
+            let _ = app_for_exit.emit(EVENT_GAME_EXIT, ExitEvent { code });
+        }
     });
 
     Ok(())
@@ -88,12 +90,17 @@ pub async fn stop_game(state: &GameState) -> Result<(), String> {
     state.autopot.stop().await;
     state.autobuff.stop().await;
     state.spammer.stop().await;
-    let pid = state.pid.lock().unwrap().take();
-    if let Some(pid) = pid {
-        let _ = tokio::process::Command::new("kill")
+    if let Some(pid) = state.game.running_pid()? {
+        let status = tokio::process::Command::new("kill")
             .args(["-TERM", &pid.to_string()])
             .status()
-            .await;
+            .await
+            .map_err(|error| format!("No se pudo enviar TERM al juego: {error}"))?;
+        if !status.success() {
+            return Err(format!(
+                "No se pudo detener el juego (kill terminó con {status})"
+            ));
+        }
     }
     Ok(())
 }

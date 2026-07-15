@@ -4,7 +4,7 @@ mod state;
 mod tools;
 mod utils;
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use tauri::{Manager, RunEvent};
 
@@ -46,7 +46,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(GameState {
-            pid: Arc::new(Mutex::new(None)),
+            game: state::GameProcessHandle::new(),
             autopot: AutopotHandle::new(),
             autobuff: AutobuffHandle::new(),
             spammer: SpammerHandle::new(),

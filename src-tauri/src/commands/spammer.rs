@@ -13,9 +13,8 @@ pub async fn start_spammer(
 ) -> Result<(), String> {
     server.validate()?;
     state
-        .pid
-        .lock()
-        .unwrap()
+        .game
+        .running_pid()?
         .ok_or_else(|| "No hay juego en ejecución (lanza el juego primero)".to_string())?;
 
     start_session(
@@ -42,9 +41,8 @@ pub async fn update_spammer_config(
     config: ro_tools_core::SpammerConfig,
 ) -> Result<(), String> {
     state
-        .pid
-        .lock()
-        .unwrap()
+        .game
+        .running_pid()?
         .ok_or_else(|| "No hay juego en ejecución (lanza el juego primero)".to_string())?;
 
     start_session(

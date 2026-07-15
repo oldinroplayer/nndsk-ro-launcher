@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use tauri::{AppHandle, State};
 
 use crate::models::server::ServerConfig;
@@ -13,15 +11,21 @@ pub async fn launch_game(
     server: ServerConfig,
 ) -> Result<(), String> {
     server.validate_executable_available()?;
-    launcher::launch_game(
+    let reservation = state.game.begin_launch()?;
+    let result = launcher::launch_game(
         app,
-        &Arc::clone(&state.pid),
+        state.game.clone(),
+        reservation,
         &state.autopot,
         &state.autobuff,
         &state.spammer,
         server,
     )
-    .await
+    .await;
+    if result.is_err() {
+        state.game.cancel_launch(reservation);
+    }
+    result
 }
 
 #[tauri::command]

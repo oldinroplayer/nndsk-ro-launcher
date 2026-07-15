@@ -10,11 +10,9 @@ pub async fn start_autobuff(
     server: ServerConfig,
 ) -> Result<(), String> {
     server.validate_executable_available()?;
-    let launcher_pid = *state
-        .pid
-        .lock()
-        .unwrap()
-        .as_ref()
+    let launcher_pid = state
+        .game
+        .running_pid()?
         .ok_or_else(|| "No hay proceso Wine del juego (lanza el juego primero)".to_string())?;
     start_session(
         app,
