@@ -1,0 +1,62 @@
+{
+  "validServer": {
+    "id": "fixture-server",
+    "name": "Fixture RO",
+    "executablePath": "/games/fixture/Ragexe.exe",
+    "patcherPath": null,
+    "winePrefix": null,
+    "runner": null
+  },
+  "invalidServers": [
+    {
+      "case": "empty-name",
+      "server": {
+        "id": "fixture-server",
+        "name": "",
+        "executablePath": "/games/fixture/Ragexe.exe"
+      }
+    },
+    {
+      "case": "non-exe-client",
+      "server": {
+        "id": "fixture-server",
+        "name": "Fixture RO",
+        "executablePath": "/games/fixture/client.bin"
+      }
+    }
+  ],
+  "defaults": {
+    "autopot": {
+      "enabled": false,
+      "hpKey": "F8",
+      "spKey": "F9",
+      "hpPercent": 80,
+      "spPercent": 50,
+      "delayMs": 100,
+      "proactiveMode": false
+    },
+    "spammer": {
+      "enabled": false,
+      "delayMs": 10,
+      "keys": ["F1"],
+      "gearSwitch": { "enabled": false, "switchDelayMs": 50, "rules": [] }
+    },
+    "autobuff": { "enabled": false, "delayMs": 300, "rules": [] }
+  },
+  "legacySpammer": {
+    "input": {
+      "keys": ["F3", "F4"],
+      "gearSwitch": {
+        "enabled": true,
+        "switchDelayMs": 60,
+        "triggerKeys": [],
+        "atkKeys": ["8"],
+        "defKeys": ["9"]
+      }
+    },
+    "expectedRules": [
+      { "trigger": "F3", "atkKeys": ["8"], "defKeys": ["9"] },
+      { "trigger": "F4", "atkKeys": ["8"], "defKeys": ["9"] }
+    ]
+  }
+}

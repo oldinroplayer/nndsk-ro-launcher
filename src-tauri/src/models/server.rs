@@ -90,6 +90,19 @@ fn validate_exe_path(label: &str, path: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct ContractFixtures {
+        valid_server: ServerConfig,
+        invalid_servers: Vec<InvalidServerFixture>,
+    }
+
+    #[derive(Deserialize)]
+    struct InvalidServerFixture {
+        server: ServerConfig,
+    }
 
     fn server() -> ServerConfig {
         ServerConfig {
@@ -115,5 +128,17 @@ mod tests {
     #[test]
     fn rejects_duplicate_server_ids() {
         assert!(validate_servers(&[server(), server()]).is_err());
+    }
+
+    #[test]
+    fn matches_shared_server_contract_fixtures() {
+        let fixtures: ContractFixtures = serde_json::from_str(include_str!(
+            "../../../contract-fixtures/server-configs.json"
+        ))
+        .unwrap();
+        assert!(fixtures.valid_server.validate().is_ok());
+        for fixture in fixtures.invalid_servers {
+            assert!(fixture.server.validate().is_err());
+        }
     }
 }

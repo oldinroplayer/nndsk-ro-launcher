@@ -81,6 +81,18 @@ npm install
 npm run tauri:dev
 ```
 
+Comprobaciones de mantenimiento antes de enviar cambios:
+
+```bash
+npm test
+npm run build
+npm run lint
+npm run format:check
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+```
+
 > `tauri:dev` exporta `GDK_BACKEND=x11` y `WEBKIT_DISABLE_DMABUF_RENDERER=1` para evitar ventana negra del WebView en Wayland.
 
 ### Build de producción

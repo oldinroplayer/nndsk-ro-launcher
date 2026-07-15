@@ -94,3 +94,19 @@ impl AutopotConfig {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn matches_shared_default_fixture() {
+        let fixtures: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../contract-fixtures/server-configs.json"
+        ))
+        .unwrap();
+        let expected: AutopotConfig =
+            serde_json::from_value(fixtures["defaults"]["autopot"].clone()).unwrap();
+        assert_eq!(AutopotConfig::default(), expected);
+    }
+}

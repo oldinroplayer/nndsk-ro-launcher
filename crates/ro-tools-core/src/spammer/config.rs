@@ -383,4 +383,27 @@ mod tests {
         assert_eq!(cfg.gear_switch.rules.len(), 1);
         assert_eq!(cfg.gear_switch.rules[0].trigger, "F4");
     }
+
+    #[test]
+    fn matches_shared_legacy_migration_fixture() {
+        let fixtures: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../contract-fixtures/server-configs.json"
+        ))
+        .unwrap();
+        let config: SpammerConfig =
+            serde_json::from_value(fixtures["legacySpammer"]["input"].clone()).unwrap();
+        let normalized = config.normalized();
+        let actual = serde_json::to_value(normalized.gear_switch.rules).unwrap();
+        assert_eq!(actual, fixtures["legacySpammer"]["expectedRules"]);
+    }
+
+    #[test]
+    fn matches_shared_default_fixture() {
+        let fixtures: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../contract-fixtures/server-configs.json"
+        ))
+        .unwrap();
+        let actual = serde_json::to_value(SpammerConfig::default()).unwrap();
+        assert_eq!(actual, fixtures["defaults"]["spammer"]);
+    }
 }

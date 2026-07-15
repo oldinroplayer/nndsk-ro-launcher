@@ -157,4 +157,15 @@ mod tests {
             .to_string()
             .contains("no soportada"));
     }
+
+    #[test]
+    fn matches_shared_default_fixture() {
+        let fixtures: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../contract-fixtures/server-configs.json"
+        ))
+        .unwrap();
+        let expected: AutobuffConfig =
+            serde_json::from_value(fixtures["defaults"]["autobuff"].clone()).unwrap();
+        assert_eq!(AutobuffConfig::default(), expected);
+    }
 }
