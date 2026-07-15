@@ -392,9 +392,8 @@ mod tests {
         .unwrap();
         let config: SpammerConfig =
             serde_json::from_value(fixtures["legacySpammer"]["input"].clone()).unwrap();
-        let normalized = config.normalized();
-        let actual = serde_json::to_value(normalized.gear_switch.rules).unwrap();
-        assert_eq!(actual, fixtures["legacySpammer"]["expectedRules"]);
+        let actual = serde_json::to_value(config).unwrap();
+        assert_eq!(actual, fixtures["legacySpammer"]["expectedCanonical"]);
     }
 
     #[test]

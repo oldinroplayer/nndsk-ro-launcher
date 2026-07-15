@@ -165,6 +165,7 @@ Todo se guarda en `~/.local/share/ro-launcher/`:
 | `servers.json` | Lista de servidores configurados |
 | `settings.json` | Runner global por defecto |
 | `*.json.bak` | Copia de seguridad de la versión anterior de cada configuración |
+| `*.json.corrupt-*` | Configuración inválida preservada después de recuperar un backup |
 | `prefix/` | WINEPREFIX compartido |
 | `prefix/.ro-launcher-configured` | Marker de setup completado |
 
@@ -189,9 +190,18 @@ La instalación es **manual** (botón Instalar) — no se copia automáticamente
 | Herramienta | Requisitos | Notas |
 |-------------|------------|-------|
 | **AutoPot** | Juego corriendo, ydotool/ydotoold, perfil de memoria | HP/SP por lectura de memoria; perfiles embebidos (compatible 4RTools) |
-| **Spammer** | Juego corriendo, ydotool/ydotoold, grupo `input` | Hotkeys F1–F9 y 0–9; `ro-inputd` sidecar bundleado; Alt+tecla pasa el evento sin spam |
+| **Spammer** | Juego corriendo, ydotool/ydotoold, grupo `input` | Hotkeys F1–F9, 0–9 y A–Z; `ro-inputd` sidecar bundleado; Alt+tecla pasa el evento sin spam |
+| **AutoBuff** | Juego corriendo, ydotool/ydotoold, perfil de memoria | Reglas de buffs por status ID con actualización de configuración en vivo |
 
-La config de ambas se guarda por servidor en `servers.json`.
+La configuración de las tres herramientas se guarda por servidor en `servers.json`.
+
+### Migración y recuperación de configuración
+
+Al iniciar, el launcher valida y migra automáticamente configuraciones antiguas al formato actual
+sin cambiar el array superior de `servers.json`. Antes de reescribir conserva el original como
+`.bak`. Si el archivo principal está corrupto y el backup es válido, restaura el backup de forma
+atómica, preserva el archivo dañado como `.corrupt-*` y muestra un aviso no bloqueante. Si ambos
+son inválidos, inicia en modo degradado para evitar pérdida de datos.
 
 ---
 

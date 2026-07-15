@@ -57,6 +57,19 @@
     "expectedRules": [
       { "trigger": "F3", "atkKeys": ["8"], "defKeys": ["9"] },
       { "trigger": "F4", "atkKeys": ["8"], "defKeys": ["9"] }
-    ]
+    ],
+    "expectedCanonical": {
+      "enabled": false,
+      "delayMs": 10,
+      "keys": ["F3", "F4"],
+      "gearSwitch": {
+        "enabled": true,
+        "switchDelayMs": 60,
+        "rules": [
+          { "trigger": "F3", "atkKeys": ["8"], "defKeys": ["9"] },
+          { "trigger": "F4", "atkKeys": ["8"], "defKeys": ["9"] }
+        ]
+      }
+    }
   }
 }

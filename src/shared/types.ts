@@ -15,6 +15,12 @@ export interface AppSettings {
   defaultRunner: string
 }
 
+export interface StorageNotice {
+  source: 'servers' | 'settings'
+  kind: 'migrated' | 'recovered'
+  message: string
+}
+
 export interface AutopotConfig {
   enabled: boolean
   hpKey: string

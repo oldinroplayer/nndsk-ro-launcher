@@ -67,7 +67,7 @@ crates/ro-inputd/         Binario sidecar — grab de teclado via evdev + passth
 src-tauri/src/
   commands/               Handlers Tauri delgados (nombre 1:1 con tools/ cuando aplica)
   tools/                  Servicios de aplicación (una carpeta por feature)
-  state/                  Estado compartido (GameState: pid, autopot, spammer, input, ydotoold)
+  state/                  Estado compartido (proceso, sesiones, repositorios y avisos)
   models/                 DTOs IPC (serde camelCase, alineados con TypeScript)
   utils/                  Infra compartida (Wine, paths, eventos, JSON, webview) — no mover a tools
 ```
@@ -77,16 +77,19 @@ src-tauri/src/
 | Módulo | Rol |
 |--------|-----|
 | `tools/autopot/` | AutoPot: PID, loop, perfiles |
+| `tools/autobuff/` | AutoBuff: PID, reglas, loop y estado live |
 | `tools/spammer/` | Spammer: lifecycle ro-inputd, loop de spam via ydotool |
 | `tools/server_tools/` | OpenSetup, patcher, dgVoodoo |
-| `tools/launcher/` | Lanzar/detener juego, cleanup AutoPot |
+| `tools/launcher/` | Lanzar/detener juego y cleanup de las tres herramientas |
 | `tools/prefix/` | Setup/reset WINEPREFIX (winetricks, marker) |
 | `tools/runners/` | Descubrir Wine/Proton instalados |
 | `tools/deps/` | Agregar checks de dependencias |
 | `tools/input/` | Ciclo de vida ydotoold + InputGateway |
 
-`commands/servers.rs` y `commands/settings.rs` son CRUD JSON puro — delegan directo a
-`utils/` y **no** necesitan capa `tools/`.
+`commands/servers.rs` y `commands/settings.rs` delegan en repositorios serializados. Estos
+canonicalizan configuraciones legacy, rotan `.bak` y recuperan archivos corruptos sin cambiar
+los payloads IPC. `GameProcessHandle` modela `Idle | Launching | Running` con generaciones;
+`SessionController` serializa start/replace/stop de AutoPot, AutoBuff y Spammer.
 
 ### Añadir una feature nueva
 
@@ -122,11 +125,16 @@ commands/spammer.rs          invoke handlers (start/stop/update_config/status)
 `find_ro_inputd()` (busca relativo al exe). Comunicación: args `--triggers F1,F2 --json`,
 recibe `{"type":"stop"}` por stdin, emite `ready`/`trigger`/`fatal`/`shutdown` por stdout.
 
-El Spammer exige que **el juego esté corriendo** (`pid` no null). `update_spammer_config` hace
-restart completo (no hay canal live de reconfiguración).
+El Spammer exige que **el juego esté corriendo**. `update_spammer_config` reemplaza la sesión de
+forma serializada: espera el cleanup anterior antes de publicar la nueva.
 
-Teclas válidas para el Spammer: `F1`–`F9` y `0`–`9`. Al mantener **Alt + tecla** el evento
+Teclas válidas para el Spammer: `F1`–`F9`, `0`–`9` y `A`–`Z`. Al mantener **Alt + tecla** el evento
 pasa por el passthrough en lugar de activar spam (comportamiento intencional).
+
+### AutoBuff — flujo de capas
+
+AutoBuff comparte resolución de PID, `SessionController`, `InputGateway` y perfiles con AutoPot.
+Su configuración activa se actualiza mediante `watch` sin reiniciar el loop.
 
 ### Server tools — flujo de capas
 
@@ -156,6 +164,7 @@ src/
     servers/                       ← server list, add/remove, selection, dgVoodoo
     launcher/                      ← launch flow, progress, error states
     autopot/                       ← panel AutoPot, store, hooks
+    autobuff/                      ← panel AutoBuff, reglas, store, hooks
     spammer/                       ← panel Spammer, store, hooks
     logs/                          ← game log + tool log (max 200 lines c/u)
     settings/                      ← runner selector, system status banner
@@ -181,6 +190,8 @@ All data lives under `~/.local/share/ro-launcher/`:
 |------|---------|
 | `servers.json` | User's server list |
 | `settings.json` | Global settings (`default_runner` path) |
+| `*.json.bak` | Previous valid version used for automatic recovery |
+| `*.json.corrupt-*` | Preserved invalid input after a successful recovery |
 | `prefix/` | Wine prefix directory |
 | `prefix/.ro-launcher-configured` | Marker file written after `setup_prefix` completes |
 
@@ -188,7 +199,8 @@ All data lives under `~/.local/share/ro-launcher/`:
 
 ## Tauri commands
 
-All commands are `async`. Long-running ones (`setup_prefix`, `launch_game`) spawn a `tokio::spawn` task and return immediately — they communicate progress via events.
+Los comandos pueden ser síncronos o asíncronos según su trabajo. Las operaciones largas usan
+Tokio y comunican progreso mediante eventos.
 
 ### Events emitted to frontend
 
@@ -198,6 +210,7 @@ ro-launcher://tool-log       { line: string }       — AutoPot, Spammer, input,
 ro-launcher://progress       { step: string, percent: number }
 ro-launcher://game-exit      { code: number }
 ro-launcher://autopot-status { AutopotStatusEvent }
+ro-launcher://autobuff-status { AutobuffStatusEvent }
 ro-launcher://spammer-status { SpammerStatusEvent }
 ```
 
@@ -231,7 +244,7 @@ Scans for system Wine (`/usr/bin/wine-cachyos`, `/usr/bin/wine`, `/usr/bin/wine6
 
 - `start_spammer(server)` — requiere `pid` (juego corriendo); inicia `ro-inputd` + loop
 - `stop_spammer()` — detiene loop y ro-inputd gracefully
-- `update_spammer_config(config)` — requiere `pid`; restart completo
+- `update_spammer_config(config)` — reemplazo serializado, sin solapar sesiones
 - `get_spammer_status()` → `SpammerStatusEvent` — snapshot sincrónico
 
 ### `list_client_profiles` → `ClientProfile[]`
@@ -281,6 +294,7 @@ interface ServerConfig {
   winePrefix?: string      // per-server prefix override
   runner?: string          // per-server runner override (path to wine/proton binary)
   autopot?: AutopotConfig
+  autobuff?: AutobuffConfig
   spammer?: SpammerConfig
 }
 
@@ -298,7 +312,7 @@ interface AutopotConfig {
 interface SpammerConfig {
   enabled: boolean
   delayMs: number          // clamped 5–100ms
-  keys: string[]           // F1–F9 or 0–9
+  keys: string[]           // F1–F9, 0–9 or A–Z
 }
 
 interface ClientProfile {
@@ -323,6 +337,7 @@ Each feature has a Zustand store:
 - `logs.store.ts` — `gameLogs[]` + `toolLogs[]` (FIFO, max 200 c/u)
 - `settings.store.ts` — `runners[]`, `selectedRunner` (path), persisted via `load_settings`/`save_settings`
 - `autopot.store.ts` — estado en vivo vía `ro-launcher://autopot-status`
+- `autobuff.store.ts` — estado en vivo vía `ro-launcher://autobuff-status`
 - `spammer.store.ts` — `status: SpammerStatusEvent`, `busy`, `userEnabled` vía `ro-launcher://spammer-status`
 
 ---
@@ -343,7 +358,7 @@ Each feature has a Zustand store:
 - Don't use `std::process::Command` for Wine/winetricks — only `tokio::process::Command`
 - Wine log filtering happens in `utils/process.rs` — preserve the `fixme:` filter
 - AutoPot domain logic belongs in `ro-tools-core`; OS adapters in `ro-tools-linux`; never invert this
-- Spammer keys are restricted to F1–F9 and 0–9; validated in `ro-tools-core/spammer/keys.rs`; `delay_ms` is clamped to 5–100ms
+- Spammer keys are restricted to F1–F9, 0–9 and A–Z; validated in `ro-tools-core/spammer/keys.rs`; `delay_ms` is clamped to 5–100ms
 - `ro-inputd` requires the user to be in the `input` group (evdev grab); if not, it exits with a fatal JSON message
 - Window is fixed 1280×820px (non-resizable) — don't design UI that needs more space
 - AppImage on Arch/CachyOS: build with `npm run tauri:build:appimage` (`NO_STRIP=true`); output at `target/release/bundle/appimage/`

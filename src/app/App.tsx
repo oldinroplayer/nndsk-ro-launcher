@@ -21,12 +21,14 @@ import { useUiModeStore } from './uiMode.store'
 import { useUiModeTransition } from './useUiModeTransition'
 import { useTransformLayoutTransition } from './useTransformLayoutTransition'
 import { StartupNotice } from './StartupNotice'
+import { MaintenanceNotice } from './MaintenanceNotice'
 
 const RAIL_EXPANDED_PX = 300
 const RAIL_COLLAPSED_PX = 64
 
 export function App() {
-  const { phase, errors, retrying, retry } = useAppInit()
+  const { phase, errors, notices, retrying, retry, dismissNotices } =
+    useAppInit()
   useLauncherEvents()
   useUiModeTransition()
 
@@ -55,6 +57,7 @@ export function App() {
           onRetry={() => void retry()}
         />
       )}
+      <MaintenanceNotice notices={notices} onDismiss={dismissNotices} />
 
       <main
         style={{ gridTemplateColumns: `${railWidth}px 1fr` }}

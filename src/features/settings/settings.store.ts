@@ -1,8 +1,11 @@
 import { create } from 'zustand'
 import { api } from '../../shared/api'
 import { runSafely } from '../../shared/async'
-import type { AdvancedDepsStatus } from '../../shared/types'
-import type { RunnerInfo } from '../../shared/types'
+import type {
+  AdvancedDepsStatus,
+  RunnerInfo,
+  StorageNotice,
+} from '../../shared/types'
 import { advancedStatusFromDeps } from './advanced.logic'
 import { resolveRunnerAfterLoad } from './settings.logic'
 
@@ -13,6 +16,7 @@ interface SettingsState {
   prefixConfigured: boolean
   loading: boolean
   error: string | null
+  notice: StorageNotice | null
   init: () => Promise<boolean>
   loadSettings: () => Promise<void>
   loadRunners: () => Promise<void>
@@ -27,9 +31,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   prefixConfigured: false,
   loading: true,
   error: null,
+  notice: null,
 
   init: async () => {
-    set({ loading: true, error: null })
+    set({ loading: true, error: null, notice: null })
     const result = await runSafely(async () => {
       await get().loadSettings()
       await get().loadRunners()
@@ -54,7 +59,17 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const result = await runSafely(() =>
         api.saveSettings({ defaultRunner: resolution.path }),
       )
-      if (!result.ok) return
+      if (!result.ok) {
+        set({ error: result.error })
+        throw new Error(result.error)
+      }
+      set({
+        notice: {
+          source: 'settings',
+          kind: 'migrated',
+          message: 'El runner predeterminado fue migrado al Proton recomendado',
+        },
+      })
     }
 
     set({ selectedRunner: resolution.path })

@@ -13,6 +13,7 @@ import type {
   ServerToolsStatus,
   SpammerConfig,
   SpammerStatusEvent,
+  StorageNotice,
   ToolKind,
   UninstallDgVoodooResult,
 } from './types'
@@ -54,6 +55,8 @@ export const api = {
     assertValid(validateAppSettings(settings))
     return invoke<void>('save_settings', { settings })
   },
+
+  takeStorageNotices: () => invoke<StorageNotice[]>('take_storage_notices'),
 
   listRunners: () => invoke<RunnerInfo[]>('list_runners'),
 

@@ -19,7 +19,9 @@ describe('useAppInit', () => {
   it('waits for servers and settings before showing the main window', async () => {
     const servers = deferred<boolean>()
     const settings = deferred<boolean>()
-    vi.mocked(invoke).mockResolvedValue(undefined)
+    vi.mocked(invoke).mockImplementation(async (command) =>
+      command === 'take_storage_notices' ? [] : undefined,
+    )
     vi.spyOn(useServersStore.getState(), 'loadServers').mockReturnValue(
       servers.promise,
     )
@@ -43,7 +45,9 @@ describe('useAppInit', () => {
   })
 
   it('opens in degraded mode and can retry failed initialization', async () => {
-    vi.mocked(invoke).mockResolvedValue(undefined)
+    vi.mocked(invoke).mockImplementation(async (command) =>
+      command === 'take_storage_notices' ? [] : undefined,
+    )
     vi.spyOn(useServersStore.getState(), 'loadServers')
       .mockImplementationOnce(async () => {
         useServersStore.setState({ error: 'servers unavailable' })
@@ -63,6 +67,37 @@ describe('useAppInit', () => {
 
     expect(result.current.phase).toBe('ready')
     expect(result.current.errors).toEqual([])
-    expect(invoke).toHaveBeenCalledTimes(2)
+    expect(
+      vi
+        .mocked(invoke)
+        .mock.calls.filter(([command]) => command === 'show_main_window'),
+    ).toHaveLength(2)
+  })
+
+  it('keeps ready phase when storage recovery emits a notice', async () => {
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === 'take_storage_notices') {
+        return [
+          {
+            source: 'servers',
+            kind: 'recovered',
+            message: 'Servidores recuperados',
+          },
+        ]
+      }
+      return undefined
+    })
+    vi.spyOn(useServersStore.getState(), 'loadServers').mockResolvedValue(true)
+    vi.spyOn(useSettingsStore.getState(), 'init').mockResolvedValue(true)
+    useSettingsStore.setState({ notice: null })
+
+    const { result } = renderHook(() => useAppInit())
+
+    await waitFor(() => expect(result.current.phase).toBe('ready'))
+    expect(result.current.notices).toHaveLength(1)
+    expect(result.current.errors).toEqual([])
+
+    act(() => result.current.dismissNotices())
+    expect(result.current.notices).toEqual([])
   })
 })

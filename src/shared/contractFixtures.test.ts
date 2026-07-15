@@ -31,5 +31,6 @@ describe('shared Rust/TypeScript contract fixtures', () => {
     expect(config.gearSwitch.rules).toEqual(
       fixtures.legacySpammer.expectedRules,
     )
+    expect(config).toEqual(fixtures.legacySpammer.expectedCanonical)
   })
 })
