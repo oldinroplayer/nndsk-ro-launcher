@@ -63,7 +63,7 @@ pub fn ydotoold_installed() -> bool {
     binary_on_path("ydotoold")
 }
 
-pub fn autopot_input_installed() -> bool {
+pub fn ydotool_input_installed() -> bool {
     ydotool_installed() && ydotoold_installed()
 }
 
@@ -175,7 +175,7 @@ impl HeldKeyWriter for YdotoolInput {
     }
 }
 
-/// Inicializa ydotool solo cuando hace falta potear.
+/// Inicializa ydotool sólo cuando una ruta de compatibilidad lo necesita.
 pub struct LazyYdotoolInput {
     inner: Mutex<Option<YdotoolInput>>,
 }

@@ -23,6 +23,7 @@ pub async fn start_spammer(
         state.input.clone(),
         std::sync::Arc::clone(&state.ydotoold),
         server.spammer.clone(),
+        server.combat_input_backend,
     )
     .await
 }
@@ -44,12 +45,14 @@ pub async fn update_spammer_config(
         .running_pid()?
         .ok_or_else(|| "No hay juego en ejecución (lanza el juego primero)".to_string())?;
 
+    let backend = state.spammer.status().input_backend;
     start_session(
         app,
         &state.spammer,
         state.input.clone(),
         std::sync::Arc::clone(&state.ydotoold),
         config,
+        backend,
     )
     .await
 }

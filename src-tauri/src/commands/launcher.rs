@@ -19,6 +19,7 @@ pub async fn launch_game(
         &state.autopot,
         &state.autobuff,
         &state.spammer,
+        &state.input,
         server,
     )
     .await;

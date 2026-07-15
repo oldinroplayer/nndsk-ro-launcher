@@ -14,6 +14,8 @@ interface SpammerStore {
 
 const idleStatus = (): SpammerStatusEvent => ({
   active: false,
+  inputBackend: 'uinput',
+  effectiveDelayMs: DEFAULT_SPAMMER_CONFIG.delayMs,
   armed: false,
   spamming: false,
   key: '',
@@ -43,6 +45,8 @@ export const useSpammerStore = create<SpammerStore>((set) => ({
 function statusEquals(a: SpammerStatusEvent, b: SpammerStatusEvent): boolean {
   return (
     a.active === b.active &&
+    a.inputBackend === b.inputBackend &&
+    a.effectiveDelayMs === b.effectiveDelayMs &&
     a.armed === b.armed &&
     a.spamming === b.spamming &&
     a.key === b.key &&

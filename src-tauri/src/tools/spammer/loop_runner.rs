@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use ro_tools_core::{HeldKeyWriter, SpammerConfig, SpammerEngine};
+use ro_tools_core::{CombatInputBackend, HeldKeyWriter, SpammerConfig, SpammerEngine};
 use tauri::AppHandle;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::watch;
@@ -10,11 +10,11 @@ use tokio::time::{interval, MissedTickBehavior};
 use super::gear::{self, GearMode};
 use crate::models::spammer::SpammerStatusEvent;
 use crate::tools::input::{
-    emit_status_if_changed, recover_ydotool_on_error, InputGateway, YdotoolDaemon,
+    emit_status_if_changed, recover_ydotool_on_error, InputGateway, InputSource, YdotoolDaemon,
 };
 use crate::utils::{emit_tool_log_opt, EVENT_SPAMMER_STATUS};
 
-const KEY_POLL_MS: u64 = 5;
+const STABLE_KEY_POLL_MS: u64 = 5;
 const INPUTD_READY_TIMEOUT_SECS: u64 = 5;
 
 #[derive(Debug)]
@@ -68,6 +68,8 @@ fn find_ro_inputd() -> std::path::PathBuf {
 
 fn build_status(
     config: &SpammerConfig,
+    backend: CombatInputBackend,
+    effective_delay_ms: u64,
     active_key: &str,
     cycle_count: u64,
     error: Option<String>,
@@ -77,6 +79,8 @@ fn build_status(
 ) -> SpammerStatusEvent {
     SpammerStatusEvent {
         active,
+        input_backend: backend,
+        effective_delay_ms,
         armed,
         spamming: !active_key.is_empty(),
         key: active_key.to_string(),
@@ -91,12 +95,18 @@ pub async fn run(
     app: AppHandle,
     writer: crate::tools::input::GatewayWriter,
     config: SpammerConfig,
+    backend: CombatInputBackend,
     mut stop_rx: watch::Receiver<bool>,
     status_arc: Arc<Mutex<SpammerStatusEvent>>,
     gateway: InputGateway,
     ydotoold: Arc<YdotoolDaemon>,
 ) {
     let config = config.clamped();
+    let effective_delay_ms = if backend == CombatInputBackend::Uinput {
+        config.delay_ms.max(10)
+    } else {
+        config.delay_ms
+    };
     let triggers_arg = config.keys.join(",");
 
     let inputd_path = find_ro_inputd();
@@ -118,7 +128,17 @@ pub async fn run(
                 &app,
                 &status_arc,
                 EVENT_SPAMMER_STATUS,
-                build_status(&config, "", 0, Some(msg), false, false, None),
+                build_status(
+                    &config,
+                    backend,
+                    effective_delay_ms,
+                    "",
+                    0,
+                    Some(msg),
+                    false,
+                    false,
+                    None,
+                ),
             );
             return;
         }
@@ -132,8 +152,12 @@ pub async fn run(
         format!("[Spammer] Esperando ro-inputd (triggers: {triggers_arg})..."),
     );
 
+    let cleanup_writer = writer.clone();
     let engine = Arc::new(Mutex::new(SpammerEngine::new(writer, config.clone())));
-    let mut poll = spammer_poll_ticker();
+    let mut poll = spammer_poll_ticker(backend, effective_delay_ms);
+    let mut metrics_ticker = interval(Duration::from_secs(10));
+    metrics_ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    metrics_ticker.tick().await;
     let mut last_spam = Instant::now()
         .checked_sub(Duration::from_secs(1))
         .unwrap_or_else(Instant::now);
@@ -143,9 +167,17 @@ pub async fn run(
     let mut held_keys: Vec<String> = Vec::new();
     let mut gear_mode: Option<&'static str> = None;
     let mut ready_received = false;
+    let mut terminal_error: Option<String> = None;
     let mut last_ydotool_recovery = Instant::now()
         .checked_sub(Duration::from_secs(10))
         .unwrap_or_else(Instant::now);
+    let mut last_status_emit = Instant::now()
+        .checked_sub(Duration::from_secs(1))
+        .unwrap_or_else(Instant::now);
+    let mut cycle_periods_us = Vec::new();
+    let mut cycle_durations_us = Vec::new();
+    let mut last_completed_cycle: Option<Instant> = None;
+    let mut ydotool_input_errors = 0u64;
 
     let ready_timeout = tokio::time::sleep(Duration::from_secs(INPUTD_READY_TIMEOUT_SECS));
     tokio::pin!(ready_timeout);
@@ -159,13 +191,13 @@ pub async fn run(
                             ready_received = true;
                             emit_tool_log_opt(Some(&app), "[Spammer] ro-inputd listo — grab activo");
                             for key in &config.keys {
-                                let _ = gateway.writer().key_up(key);
+                                let _ = cleanup_writer.key_up(key);
                             }
                             emit_status_if_changed(
                                 &app,
                                 &status_arc,
                                 EVENT_SPAMMER_STATUS,
-                                build_status(&config, "", 0, None, true, true, gear_mode),
+                                build_status(&config, backend, effective_delay_ms, "", 0, None, true, true, gear_mode),
                             );
                         }
                         Some(InputdMsg::TriggerHeld { key, held }) if ready_received => {
@@ -187,6 +219,9 @@ pub async fn run(
                                         Some(&app),
                                         format!("[Spammer] Spam activo ({key})"),
                                     );
+                                    if backend == CombatInputBackend::Uinput {
+                                        poll.reset_immediately();
+                                    }
                                 }
                             } else {
                                 held_keys.retain(|k| k != &key);
@@ -214,7 +249,20 @@ pub async fn run(
                                     };
                                     if !keys.is_empty() {
                                         let switch_delay = config.gear_switch.switch_delay_ms;
-                                        let writer = gateway.writer();
+                                        let writer = match gateway.writer_for(
+                                            backend,
+                                            InputSource::Gear,
+                                            switch_delay,
+                                        ) {
+                                            Ok(writer) => writer,
+                                            Err(error) => {
+                                                emit_tool_log_opt(
+                                                    Some(&app),
+                                                    format!("[Spammer] ERROR gear input: {error}"),
+                                                );
+                                                continue 'main;
+                                            }
+                                        };
                                         let keys_log = keys.join("+");
                                         let equip_result = tokio::task::spawn_blocking(
                                             move || gear::equip(&writer, &keys, switch_delay),
@@ -232,15 +280,17 @@ pub async fn run(
                                             }
                                             Ok(Err(e)) => {
                                                 let err_msg = e.to_string();
-                                                recover_ydotool_on_error(
-                                                    &app,
-                                                    &gateway,
-                                                    ydotoold.as_ref(),
-                                                    &mut last_ydotool_recovery,
-                                                    err_msg.as_str(),
-                                                    "[Input] ydotoold recuperado (gear)",
-                                                )
-                                                .await;
+                                                if backend == CombatInputBackend::Ydotool {
+                                                    recover_ydotool_on_error(
+                                                        &app,
+                                                        &gateway,
+                                                        ydotoold.as_ref(),
+                                                        &mut last_ydotool_recovery,
+                                                        err_msg.as_str(),
+                                                        "[Input] ydotoold recuperado (gear)",
+                                                    )
+                                                    .await;
+                                                }
                                             }
                                             Err(e) => {
                                                 emit_tool_log_opt(
@@ -263,6 +313,8 @@ pub async fn run(
                                 EVENT_SPAMMER_STATUS,
                                 build_status(
                                     &config,
+                                    backend,
+                                    effective_delay_ms,
                                     &active_key,
                                     cycle_count,
                                     Some(msg),
@@ -284,6 +336,8 @@ pub async fn run(
                             EVENT_SPAMMER_STATUS,
                             build_status(
                                 &config,
+                                backend,
+                                effective_delay_ms,
                                 &active_key,
                                 cycle_count,
                                 Some(msg),
@@ -296,19 +350,36 @@ pub async fn run(
                     }
                 }
             }
-            _ = poll.tick(), if ready_received => {
-                if !active_key.is_empty()
-                    && last_spam.elapsed() >= Duration::from_millis(config.delay_ms)
-                {
+            scheduled = poll.tick(), if ready_received => {
+                let cycle_due = backend == CombatInputBackend::Uinput
+                    || last_spam.elapsed() >= Duration::from_millis(config.delay_ms);
+                if !active_key.is_empty() && cycle_due {
                     let tick_key = active_key.clone();
                     let log_key = tick_key.clone();
-                    let eng = Arc::clone(&engine);
-                    let tick_result = tokio::task::spawn_blocking(move || {
-                        eng.lock().unwrap().tick(&tick_key)
-                    }).await;
+                    let cycle_started = Instant::now();
+                    let tick_result = if backend == CombatInputBackend::Uinput {
+                        let deadline = scheduled.into_std() + Duration::from_millis(effective_delay_ms);
+                        engine
+                            .lock()
+                            .unwrap()
+                            .tick_with_deadline(&tick_key, Some(deadline))
+                            .map_err(|error| error.to_string())
+                    } else {
+                        let eng = Arc::clone(&engine);
+                        match tokio::task::spawn_blocking(move || eng.lock().unwrap().tick(&tick_key)).await {
+                            Ok(result) => result.map_err(|error| error.to_string()),
+                            Err(error) => Err(format!("join: {error}")),
+                        }
+                    };
 
                     match tick_result {
-                        Ok(Ok(tick)) if tick.cycled => {
+                        Ok(tick) if tick.cycled => {
+                            if let Some(previous) = last_completed_cycle.replace(cycle_started) {
+                                cycle_periods_us.push(
+                                    cycle_started.duration_since(previous).as_micros() as u64,
+                                );
+                            }
+                            cycle_durations_us.push(cycle_started.elapsed().as_micros() as u64);
                             last_spam = Instant::now();
                             cycle_count += 1;
                             let should_log = cycle_count == 1
@@ -321,56 +392,77 @@ pub async fn run(
                                 );
                             }
                         }
-                        Ok(Err(e)) => {
-                            let err_msg = e.to_string();
-                            recover_ydotool_on_error(
-                                &app,
-                                &gateway,
-                                ydotoold.as_ref(),
-                                &mut last_ydotool_recovery,
-                                err_msg.as_str(),
-                                "[Input] ydotoold recuperado (spammer)",
-                            )
-                            .await;
+                        Err(err_msg) => {
+                            if backend == CombatInputBackend::Ydotool {
+                                ydotool_input_errors += 1;
+                            }
+                            if backend == CombatInputBackend::Ydotool {
+                                recover_ydotool_on_error(
+                                    &app,
+                                    &gateway,
+                                    ydotoold.as_ref(),
+                                    &mut last_ydotool_recovery,
+                                    err_msg.as_str(),
+                                    "[Input] ydotoold recuperado (spammer)",
+                                )
+                                .await;
+                            }
                             emit_status_if_changed(
                                 &app,
                                 &status_arc,
                                 EVENT_SPAMMER_STATUS,
                                 build_status(
                                     &config,
+                                    backend,
+                                    effective_delay_ms,
                                     &active_key,
                                     cycle_count,
-                                    Some(err_msg),
+                                    Some(err_msg.clone()),
                                     true,
                                     true,
                                     gear_mode,
                                 ),
                             );
+                            if backend == CombatInputBackend::Uinput {
+                                terminal_error = Some(err_msg);
+                                break 'main;
+                            }
                             continue 'main;
-                        }
-                        Err(e) => {
-                            emit_tool_log_opt(
-                                Some(&app),
-                                format!("[Spammer] ERROR tick (join): {e}"),
-                            );
                         }
                         _ => {}
                     }
                 }
 
-                emit_status_if_changed(
+                if last_status_emit.elapsed() >= Duration::from_millis(250) {
+                    last_status_emit = Instant::now();
+                    emit_status_if_changed(
+                        &app,
+                        &status_arc,
+                        EVENT_SPAMMER_STATUS,
+                        build_status(
+                            &config,
+                            backend,
+                            effective_delay_ms,
+                            &active_key,
+                            cycle_count,
+                            None,
+                            true,
+                            true,
+                            gear_mode,
+                        ),
+                    );
+                }
+            }
+            _ = metrics_ticker.tick() => {
+                log_metrics(
                     &app,
-                    &status_arc,
-                    EVENT_SPAMMER_STATUS,
-                    build_status(
-                        &config,
-                        &active_key,
-                        cycle_count,
-                        None,
-                        true,
-                        true,
-                        gear_mode,
-                    ),
+                    &gateway,
+                    backend,
+                    effective_delay_ms,
+                    &mut cycle_periods_us,
+                    &mut cycle_durations_us,
+                    &mut ydotool_input_errors,
+                    false,
                 );
             }
             _ = &mut ready_timeout, if !ready_received => {
@@ -382,6 +474,8 @@ pub async fn run(
                     EVENT_SPAMMER_STATUS,
                     build_status(
                         &config,
+                        backend,
+                        effective_delay_ms,
                         &active_key,
                         cycle_count,
                         Some(msg),
@@ -405,17 +499,91 @@ pub async fn run(
     drop(stdin);
     let _ = tokio::time::timeout(Duration::from_secs(2), child.wait()).await;
 
+    log_metrics(
+        &app,
+        &gateway,
+        backend,
+        effective_delay_ms,
+        &mut cycle_periods_us,
+        &mut cycle_durations_us,
+        &mut ydotool_input_errors,
+        true,
+    );
     emit_tool_log_opt(Some(&app), "[Spammer] Loop detenido");
     emit_status_if_changed(
         &app,
         &status_arc,
         EVENT_SPAMMER_STATUS,
-        build_status(&config, "", cycle_count, None, false, false, None),
+        build_status(
+            &config,
+            backend,
+            effective_delay_ms,
+            "",
+            cycle_count,
+            terminal_error,
+            false,
+            false,
+            None,
+        ),
     );
 }
 
-fn spammer_poll_ticker() -> tokio::time::Interval {
-    let mut ticker = interval(Duration::from_millis(KEY_POLL_MS));
+fn log_metrics(
+    app: &AppHandle,
+    gateway: &InputGateway,
+    backend: CombatInputBackend,
+    effective_delay_ms: u64,
+    periods_us: &mut Vec<u64>,
+    durations_us: &mut Vec<u64>,
+    ydotool_input_errors: &mut u64,
+    final_window: bool,
+) {
+    let window = if final_window { "final" } else { "10s" };
+    let line = if backend == CombatInputBackend::Uinput {
+        format!(
+            "{} effective_delay_ms={effective_delay_ms}",
+            gateway
+                .uinput_metrics(InputSource::Spammer)
+                .log_line(InputSource::Spammer, final_window)
+        )
+    } else {
+        format!(
+            "[input-metrics] backend=ydotool source=spammer window={window} effective_delay_ms={effective_delay_ms} samples={} period_us[p50/p95/p99]={}/{}/{} queue_us=not_applicable cycle_us[p50/p95/p99]={}/{}/{} overruns=0 dropped=0 input_errors={}",
+            durations_us.len(),
+            percentile(periods_us, 50),
+            percentile(periods_us, 95),
+            percentile(periods_us, 99),
+            percentile(durations_us, 50),
+            percentile(durations_us, 95),
+            percentile(durations_us, 99),
+            *ydotool_input_errors,
+        )
+    };
+    emit_tool_log_opt(Some(app), line);
+    periods_us.clear();
+    durations_us.clear();
+    *ydotool_input_errors = 0;
+}
+
+fn percentile(values: &[u64], percent: usize) -> u64 {
+    if values.is_empty() {
+        return 0;
+    }
+    let mut sorted = values.to_vec();
+    sorted.sort_unstable();
+    sorted[((sorted.len() - 1) * percent).div_ceil(100)]
+}
+
+fn spammer_poll_ticker(
+    backend: CombatInputBackend,
+    effective_delay_ms: u64,
+) -> tokio::time::Interval {
+    let period = if backend == CombatInputBackend::Uinput {
+        effective_delay_ms
+    } else {
+        STABLE_KEY_POLL_MS
+    };
+    let mut ticker = interval(Duration::from_millis(period));
     ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
     ticker
 }

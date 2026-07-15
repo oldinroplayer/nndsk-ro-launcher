@@ -32,6 +32,13 @@ export function validateServerConfig(server: ServerConfig): string | null {
   if (typeof server.runner === 'string' && !server.runner.trim()) {
     return 'El runner no puede estar vacío'
   }
+  if (
+    server.combatInputBackend !== undefined &&
+    server.combatInputBackend !== 'uinput' &&
+    server.combatInputBackend !== 'ydotool'
+  ) {
+    return 'El backend de input de combate no es válido'
+  }
   return null
 }
 

@@ -101,6 +101,7 @@ pub fn run() {
                         );
                         state.ydotoold.shutdown().await;
                     });
+                    state.input.shutdown();
                 }
             }
         });

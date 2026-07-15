@@ -1,4 +1,4 @@
-use ro_tools_core::{AutobuffConfig, AutopotConfig, SpammerConfig};
+use ro_tools_core::{AutobuffConfig, AutopotConfig, CombatInputBackend, SpammerConfig};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -11,6 +11,8 @@ pub struct ServerConfig {
     pub patcher_path: Option<String>,
     pub wine_prefix: Option<String>,
     pub runner: Option<String>,
+    #[serde(default)]
+    pub combat_input_backend: CombatInputBackend,
     #[serde(default)]
     pub autopot: AutopotConfig,
     #[serde(default)]
@@ -112,6 +114,7 @@ mod tests {
             patcher_path: None,
             wine_prefix: None,
             runner: None,
+            combat_input_backend: Default::default(),
             autopot: Default::default(),
             spammer: Default::default(),
             autobuff: Default::default(),
@@ -140,5 +143,19 @@ mod tests {
         for fixture in fixtures.invalid_servers {
             assert!(fixture.server.validate().is_err());
         }
+    }
+
+    #[test]
+    fn legacy_server_defaults_to_uinput() {
+        let server: ServerConfig = serde_json::from_value(serde_json::json!({
+            "id": "legacy",
+            "name": "Legacy RO",
+            "executablePath": "/games/legacy/Ragexe.exe",
+            "patcherPath": null,
+            "winePrefix": null,
+            "runner": null
+        }))
+        .unwrap();
+        assert_eq!(server.combat_input_backend, CombatInputBackend::Uinput);
     }
 }

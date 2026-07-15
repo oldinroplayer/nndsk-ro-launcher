@@ -4,6 +4,7 @@ use crate::models::server::ServerConfig;
 use crate::state::{GameProcessHandle, GameState, LaunchReservation};
 use crate::tools::autobuff::AutobuffHandle;
 use crate::tools::autopot::AutopotHandle;
+use crate::tools::input::InputGateway;
 use crate::tools::spammer::SpammerHandle;
 use crate::utils::audio;
 use crate::utils::gecko::install_gecko;
@@ -20,12 +21,24 @@ pub async fn launch_game(
     autopot: &AutopotHandle,
     autobuff: &AutobuffHandle,
     spammer: &SpammerHandle,
+    input: &InputGateway,
     server: ServerConfig,
 ) -> Result<(), String> {
     let ctx = resolve_wine_context(server.wine_prefix.clone(), server.runner.clone()).await?;
 
     if !is_prefix_configured(&ctx.prefix) {
         return Err("El WINEPREFIX no está configurado. Ejecuta el setup primero.".to_string());
+    }
+
+    if server.combat_input_backend == ro_tools_core::CombatInputBackend::Uinput {
+        let devices = input
+            .prepare_uinput()
+            .await
+            .map_err(|error| format!("No se pudo preparar input uinput: {error}"))?;
+        emit_tool_log_opt(
+            Some(&app),
+            format!("[Launch] uinput preparado antes de Wine: {devices}"),
+        );
     }
 
     install_gecko(&app, &ctx.prefix, &ctx.resolved.wine_bin).await?;

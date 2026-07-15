@@ -12,6 +12,7 @@ import { SpammerPanel } from '../features/spammer/SpammerPanel'
 import { AutobuffPanel } from '../features/autobuff/AutobuffPanel'
 import { UnifiedLogPanel } from '../features/logs/LogPanels'
 import { RunnerSelector } from '../features/settings/RunnerSelector'
+import { CombatInputSelector } from '../features/settings/CombatInputSelector'
 import { AdvancedSettings } from '../features/settings/AdvancedSettings'
 import { PrefixResetButton } from '../features/settings/PrefixResetButton'
 import { useLauncherEvents } from '../features/launcher/useLauncherEvents'
@@ -84,6 +85,7 @@ export function App() {
               <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2.5 pr-0.5">
                 <ServerList />
                 <RunnerSelector />
+                <CombatInputSelector />
                 <AdvancedSettings />
               </div>
               <div className="shrink-0 pb-2.5">

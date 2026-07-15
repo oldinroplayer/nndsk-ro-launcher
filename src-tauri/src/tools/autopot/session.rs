@@ -50,9 +50,25 @@ pub async fn start_session(
         format!("[AutoPot] PID seleccionado: {pid} ({detail})"),
     );
 
-    ensure_ydotoold(Some(&app), ydotoold.as_ref()).await?;
+    match server.combat_input_backend {
+        ro_tools_core::CombatInputBackend::Ydotool => {
+            ensure_ydotoold(Some(&app), ydotoold.as_ref()).await?
+        }
+        ro_tools_core::CombatInputBackend::Uinput if !input.is_uinput_prepared() => {
+            return Err("AutoPot no puede iniciar: uinput no fue preparado antes de Wine".into())
+        }
+        ro_tools_core::CombatInputBackend::Uinput => {}
+    }
 
     handle
-        .start(app, pid, server.autopot.clone(), profile, input, ydotoold)
+        .start(
+            app,
+            pid,
+            server.autopot.clone(),
+            profile,
+            server.combat_input_backend,
+            input,
+            ydotoold,
+        )
         .await
 }

@@ -1,5 +1,5 @@
 import { audioFromDeps } from '../../shared/audio'
-import { autopotInputFromDeps } from '../../shared/autopotInput'
+import { ydotoolInputFromDeps } from '../../shared/ydotoolInput'
 import type { AdvancedDepsStatus, DependencyStatus } from '../../shared/types'
 import type { DotStatus } from '../../shared/ui/StatusDot'
 
@@ -26,9 +26,11 @@ export function advancedStatusFromDeps(
 ): AdvancedDepsStatus {
   return {
     ...audioFromDeps(deps),
-    ...autopotInputFromDeps(deps),
+    ...ydotoolInputFromDeps(deps),
     inputGroupOk: deps.inputGroupOk,
     inputGroupWarning: deps.inputGroupWarning,
+    uinputInputOk: deps.uinputInputOk,
+    uinputInputWarning: deps.uinputInputWarning,
     prefixOk: deps.prefixOk,
     prefixWarning: deps.prefixWarning,
     dxvkOk: deps.dxvkOk,
@@ -40,6 +42,7 @@ export function advancedHasIssue(status: AdvancedDepsStatus): boolean {
   return (
     resolveAudioDotStatus(status.audioOk, status.audioWarning) !== 'ok' ||
     resolveDotStatus(status.prefixOk, status.prefixWarning) !== 'ok' ||
+    resolveDotStatus(status.uinputInputOk, status.uinputInputWarning) !== 'ok' ||
     resolveDotStatus(status.dxvkOk, status.dxvkWarning) !== 'ok'
   )
 }

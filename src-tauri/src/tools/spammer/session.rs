@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ro_tools_core::SpammerConfig;
+use ro_tools_core::{CombatInputBackend, SpammerConfig};
 use tauri::AppHandle;
 
 use crate::tools::input::{ensure_ydotoold, InputGateway, YdotoolDaemon};
@@ -15,8 +15,17 @@ pub async fn start_session(
     input: InputGateway,
     ydotoold: Arc<YdotoolDaemon>,
     config: SpammerConfig,
+    backend: CombatInputBackend,
 ) -> Result<(), String> {
-    emit_tool_log_opt(Some(&app), "[Spammer] Preparando ydotool...");
-    ensure_ydotoold(Some(&app), ydotoold.as_ref()).await?;
-    handle.start(app, input, config, ydotoold).await
+    match backend {
+        CombatInputBackend::Ydotool => {
+            emit_tool_log_opt(Some(&app), "[Spammer] Preparando ydotool...");
+            ensure_ydotoold(Some(&app), ydotoold.as_ref()).await?;
+        }
+        CombatInputBackend::Uinput if !input.is_uinput_prepared() => {
+            return Err("Spammer no puede iniciar: uinput no fue preparado antes de Wine".into());
+        }
+        CombatInputBackend::Uinput => {}
+    }
+    handle.start(app, input, config, backend, ydotoold).await
 }

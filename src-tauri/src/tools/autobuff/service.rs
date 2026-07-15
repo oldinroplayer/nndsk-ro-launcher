@@ -64,7 +64,7 @@ impl AutobuffHandle {
             .map_err(|e| format!("No se pudo abrir memoria PID {pid}: {e}"))?;
         let config = config.clamped();
         let (config_tx, config_rx) = watch::channel(config.clone());
-        let writer = input.writer();
+        let writer = input.ydotool_writer();
         let status_arc = Arc::clone(&self.status);
         emit_tool_log_opt(
             Some(&app),

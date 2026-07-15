@@ -86,15 +86,26 @@ export function AdvancedSettings() {
       hint: advancedStatus.inputGroupWarning,
     },
     {
-      key: 'autopot',
+      key: 'ydotool-input',
       dot: resolveDotStatus(
-        advancedStatus.autopotInputOk,
-        advancedStatus.autopotInputWarning,
+        advancedStatus.ydotoolInputOk,
+        advancedStatus.ydotoolInputWarning,
       ),
-      label: advancedStatus.autopotInputOk
-        ? 'AutoPot · ydotool OK'
-        : 'AutoPot · ydotool (opcional)',
-      hint: advancedStatus.autopotInputWarning,
+      label: advancedStatus.ydotoolInputOk
+        ? 'AutoBuff/Compatibilidad · ydotool OK'
+        : 'AutoBuff/Compatibilidad · ydotool no disponible',
+      hint: advancedStatus.ydotoolInputWarning,
+    },
+    {
+      key: 'uinput',
+      dot: resolveDotStatus(
+        advancedStatus.uinputInputOk,
+        advancedStatus.uinputInputWarning,
+      ),
+      label: advancedStatus.uinputInputOk
+        ? 'Input de combate · uinput OK'
+        : 'Input de combate · uinput no disponible',
+      hint: advancedStatus.uinputInputWarning,
     },
   ]
 

@@ -1,6 +1,6 @@
 use ro_tools_linux::{
-    autopot_input_installed, is_ydotool_responsive, is_ydotool_socket_ready,
-    remove_stale_ydotool_socket, ydotool_socket_path,
+    is_ydotool_responsive, is_ydotool_socket_ready, remove_stale_ydotool_socket,
+    ydotool_input_installed, ydotool_socket_path,
 };
 use std::sync::Mutex;
 use std::time::Duration;
@@ -33,23 +33,25 @@ impl YdotoolDaemon {
 }
 
 /// Campos de input virtual para [`DependencyStatus`] (solo paquetes; no exige daemon activo).
-pub fn dependency_autopot_input_fields() -> (bool, Option<String>) {
-    if autopot_input_installed() {
+pub fn dependency_ydotool_input_fields() -> (bool, Option<String>) {
+    if ydotool_input_installed() {
         return (true, None);
     }
 
     (
         false,
-        Some(format!("Opcional para AutoPot. {YDOTOOL_INSTALL_HINT}")),
+        Some(format!(
+            "Necesario para AutoBuff o el modo de compatibilidad. {YDOTOOL_INSTALL_HINT}"
+        )),
     )
 }
 
-/// Garantiza ydotoold activo antes de potear. Arranca el daemon si hace falta.
+/// Garantiza ydotoold activo para AutoBuff o el modo de compatibilidad.
 pub async fn ensure_ydotoold(
     app: Option<&AppHandle>,
     daemon: &YdotoolDaemon,
 ) -> Result<(), String> {
-    if !autopot_input_installed() {
+    if !ydotool_input_installed() {
         return Err(format!("ydotool no está instalado. {YDOTOOL_INSTALL_HINT}"));
     }
 

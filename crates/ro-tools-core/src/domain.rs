@@ -1,5 +1,23 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum CombatInputBackend {
+    #[default]
+    #[serde(alias = "stable", alias = "lowLatency")]
+    Uinput,
+    Ydotool,
+}
+
+impl CombatInputBackend {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Uinput => "uinput",
+            Self::Ydotool => "ydotool",
+        }
+    }
+}
+
 /// Memory layout shared by most rAthena / 4RTools-compatible clients.
 ///
 /// Offsets match 4RTools `Client.cs`:
@@ -122,5 +140,21 @@ mod tests {
         assert!(p.matches_exe("OsRO Midrate.exe"));
         assert!(p.matches_exe("HoneyRO.exe"));
         assert!(p.matches_exe("MyRO Client.exe"));
+    }
+
+    #[test]
+    fn combat_input_backend_defaults_to_uinput() {
+        assert_eq!(CombatInputBackend::default(), CombatInputBackend::Uinput);
+        assert_eq!(CombatInputBackend::Uinput.as_str(), "uinput");
+    }
+
+    #[test]
+    fn legacy_combat_backends_migrate_to_uinput() {
+        for legacy in ["stable", "lowLatency"] {
+            let backend: CombatInputBackend =
+                serde_json::from_value(serde_json::json!(legacy)).unwrap();
+            assert_eq!(backend, CombatInputBackend::Uinput);
+            assert_eq!(serde_json::to_value(backend).unwrap(), "uinput");
+        }
     }
 }

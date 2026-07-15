@@ -1,4 +1,5 @@
 mod gateway;
+mod uinput_worker;
 mod ydotool;
 
 use std::sync::{Arc, Mutex};
@@ -10,7 +11,8 @@ use tauri::{AppHandle, Emitter};
 use crate::utils::emit_tool_log_opt;
 
 pub use gateway::{GatewayWriter, InputGateway};
-pub use ydotool::{dependency_autopot_input_fields, ensure_ydotoold, YdotoolDaemon};
+pub use uinput_worker::InputSource;
+pub use ydotool::{dependency_ydotool_input_fields, ensure_ydotoold, YdotoolDaemon};
 
 pub(crate) fn emit_status_if_changed<T>(
     app: &AppHandle,
@@ -42,7 +44,7 @@ pub(crate) async fn recover_ydotool_on_error(
 
     *last_recovery = Instant::now();
     if ensure_ydotoold(Some(app), ydotoold).await.is_ok() {
-        gateway.reset();
+        gateway.reset_ydotool();
         emit_tool_log_opt(Some(app), success_log);
         return true;
     }

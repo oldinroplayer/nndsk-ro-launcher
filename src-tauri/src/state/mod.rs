@@ -182,6 +182,7 @@ mod tests {
             "id": "legacy",
             "name": "Legacy RO",
             "executablePath": "/games/legacy/Ragexe.exe",
+            "combatInputBackend": "lowLatency",
             "spammer": {
                 "keys": ["F3", "F4"],
                 "gearSwitch": {
@@ -198,6 +199,10 @@ mod tests {
 
         let loaded = repository.list(&notices).unwrap();
         assert_eq!(loaded[0].spammer.gear_switch.rules.len(), 2);
+        assert_eq!(
+            loaded[0].combat_input_backend,
+            ro_tools_core::CombatInputBackend::Uinput
+        );
         let canonical: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert!(canonical[0]["spammer"]["gearSwitch"]
@@ -210,6 +215,7 @@ mod tests {
                 .len(),
             2
         );
+        assert_eq!(canonical[0]["combatInputBackend"], "uinput");
         assert_eq!(
             serde_json::from_str::<serde_json::Value>(
                 &fs::read_to_string(backup_path(&path)).unwrap()
