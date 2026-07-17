@@ -40,7 +40,8 @@ export function advancedHasIssue(status: AdvancedDepsStatus): boolean {
   return (
     resolveAudioDotStatus(status.audioOk, status.audioWarning) !== 'ok' ||
     resolveDotStatus(status.prefixOk, status.prefixWarning) !== 'ok' ||
-    resolveDotStatus(status.uinputInputOk, status.uinputInputWarning) !== 'ok' ||
+    resolveDotStatus(status.uinputInputOk, status.uinputInputWarning) !==
+      'ok' ||
     resolveDotStatus(status.dxvkOk, status.dxvkWarning) !== 'ok'
   )
 }
