@@ -86,17 +86,6 @@ export function AdvancedSettings() {
       hint: advancedStatus.inputGroupWarning,
     },
     {
-      key: 'ydotool-input',
-      dot: resolveDotStatus(
-        advancedStatus.ydotoolInputOk,
-        advancedStatus.ydotoolInputWarning,
-      ),
-      label: advancedStatus.ydotoolInputOk
-        ? 'AutoBuff/Compatibilidad · ydotool OK'
-        : 'AutoBuff/Compatibilidad · ydotool no disponible',
-      hint: advancedStatus.ydotoolInputWarning,
-    },
-    {
       key: 'uinput',
       dot: resolveDotStatus(
         advancedStatus.uinputInputOk,

@@ -16,7 +16,7 @@ export function SpammerPanel() {
   const launching = useLauncherStore((state) => state.status === 'launching')
   const hero = useUiModeStore((state) => state.mode === 'ingame')
   const available = isRunning && !!server
-  const minimumDelayMs = server?.combatInputBackend === 'ydotool' ? 5 : 10
+  const minimumDelayMs = 10
   const keysLabel = formatSpammerKeys(config.keys)
 
   const statusLabel = (() => {

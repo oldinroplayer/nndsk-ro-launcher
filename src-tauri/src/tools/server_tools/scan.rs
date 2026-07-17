@@ -201,7 +201,6 @@ mod tests {
             patcher_path: None,
             wine_prefix: None,
             runner: None,
-            combat_input_backend: Default::default(),
             autopot: Default::default(),
             spammer: Default::default(),
             autobuff: Default::default(),

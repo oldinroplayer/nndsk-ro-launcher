@@ -13,8 +13,6 @@ const healthyStatus: AdvancedDepsStatus = {
   audioWarning: null,
   inputGroupOk: true,
   inputGroupWarning: null,
-  ydotoolInputOk: true,
-  ydotoolInputWarning: null,
   uinputInputOk: true,
   uinputInputWarning: null,
   prefixOk: true,
@@ -59,8 +57,6 @@ describe('advancedHasIssue', () => {
         ...healthyStatus,
         inputGroupOk: false,
         inputGroupWarning: 'usermod',
-        ydotoolInputOk: false,
-        ydotoolInputWarning: 'falta ydotool',
         uinputInputOk: false,
         uinputInputWarning: 'falta uinput',
         prefixOk: false,
@@ -80,14 +76,12 @@ describe('advancedHasIssue', () => {
     ).toBe(true)
   })
 
-  it('ignora ydotool e input group para el aviso del panel', () => {
+  it('ignora input group aislado para el aviso del panel', () => {
     expect(
       advancedHasIssue({
         ...healthyStatus,
         inputGroupOk: false,
         inputGroupWarning: 'usermod',
-        ydotoolInputOk: false,
-        ydotoolInputWarning: 'falta ydotool',
       }),
     ).toBe(false)
   })

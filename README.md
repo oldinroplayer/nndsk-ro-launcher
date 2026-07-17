@@ -33,8 +33,7 @@ Launcher dedicado para **Ragnarok Online** en Linux. Gestiona el WINEPREFIX, dep
 | **Linux x86_64** | Probado en CachyOS/Arch; compatible con otras distros |
 | **Vulkan + drivers GPU** | Necesario para DXVK (AMD/NVIDIA/Intel) |
 | **winetricks** | Setup del prefix |
-| **`/dev/uinput` + grupo `input`** | Input estable de AutoPot/Spammer y captura evdev de `ro-inputd` |
-| **ydotool + ydotoold** | AutoBuff y backend de compatibilidad para AutoPot/Spammer |
+| **`/dev/uinput` + grupo `input`** | Input de AutoPot/Spammer/AutoBuff y captura evdev de `ro-inputd` |
 
 > En Wayland (Hyprland, etc.) el juego se lanza vía Xwayland automáticamente. La UI del launcher también fuerza backend X11 para WebKit (incluido AppImage).
 
@@ -185,15 +184,15 @@ La instalación es **manual** (botón Instalar) — no se copia automáticamente
 
 ---
 
-## AutoPot y Spammer
+## AutoPot, Spammer y AutoBuff
 
 | Herramienta | Requisitos | Notas |
 |-------------|------------|-------|
 | **AutoPot** | Juego corriendo, `/dev/uinput`, perfil de memoria | HP/SP por una lectura de memoria; loop estable con mínimo de 10 ms |
 | **Spammer** | Juego corriendo, `/dev/uinput`, grupo `input` | Worker uinput persistente; hotkeys F1–F9, 0–9 y A–Z; Alt+tecla pasa el evento sin spam |
-| **AutoBuff** | Juego corriendo, ydotool/ydotoold, perfil de memoria | Reglas de buffs por status ID con actualización de configuración en vivo |
+| **AutoBuff** | Juego corriendo, `/dev/uinput`, perfil de memoria | Reglas de buffs por status ID con actualización de configuración en vivo |
 
-El backend estable es `uinput`; `ydotool` queda seleccionable por servidor como compatibilidad.
+Todas las herramientas comparten un único worker uinput persistente.
 La configuración de las tres herramientas se guarda por servidor en `servers.json`.
 
 ### Migración y recuperación de configuración

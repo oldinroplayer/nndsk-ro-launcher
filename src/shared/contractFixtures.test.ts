@@ -19,26 +19,9 @@ describe('shared Rust/TypeScript contract fixtures', () => {
   })
 
   it('keeps common configuration defaults in parity', () => {
-    expect(fixtures.defaults.combatInputBackend).toBe('uinput')
     expect(mergeAutopotConfig()).toMatchObject(fixtures.defaults.autopot)
     expect(mergeSpammerConfig()).toEqual(fixtures.defaults.spammer)
     expect(mergeAutobuffConfig()).toEqual(fixtures.defaults.autobuff)
-  })
-
-  it('rejects an unknown combat input backend', () => {
-    expect(
-      validateServerConfig({
-        ...(fixtures.validServer as ServerConfig),
-        combatInputBackend: 'unknown' as ServerConfig['combatInputBackend'],
-      }),
-    ).not.toBeNull()
-  })
-
-  it('documents legacy combat backends as uinput migrations', () => {
-    expect(fixtures.legacyCombatInputBackends).toEqual([
-      { input: 'stable', expectedCanonical: 'uinput' },
-      { input: 'lowLatency', expectedCanonical: 'uinput' },
-    ])
   })
 
   it('migrates the legacy gear schema identically', () => {

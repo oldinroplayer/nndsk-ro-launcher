@@ -18,6 +18,7 @@ const ACK_TIMEOUT: Duration = Duration::from_millis(250);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InputSource {
     Autopot,
+    Autobuff,
     Spammer,
     Gear,
 }
@@ -26,6 +27,7 @@ impl InputSource {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Autopot => "autopot",
+            Self::Autobuff => "autobuff",
             Self::Spammer => "spammer",
             Self::Gear => "gear",
         }
@@ -33,6 +35,10 @@ impl InputSource {
 
     fn high_priority(self) -> bool {
         matches!(self, Self::Autopot)
+    }
+
+    fn records_metrics(self) -> bool {
+        matches!(self, Self::Autopot | Self::Spammer)
     }
 }
 
@@ -200,7 +206,7 @@ impl UinputInput {
             .map_err(|_| ToolsError::Other("uinput worker lock poisoned".into()))?;
         let worker = guard.as_ref().ok_or_else(|| {
             ToolsError::Other(
-                "uinput stage=get writer device=both errno=none: backend no preparado".into(),
+                "uinput stage=get writer device=both errno=none: worker no preparado".into(),
             )
         })?;
         Ok(UinputWriter {
@@ -316,6 +322,9 @@ impl UinputWriter {
     }
 
     fn bump(&self, update: impl FnOnce(&mut SourceMetrics)) {
+        if !self.source.records_metrics() {
+            return;
+        }
         if let Ok(mut metrics) = self.metrics.lock() {
             update(metrics.entry(self.source).or_default());
         }
@@ -405,7 +414,9 @@ fn execute_command<D: InputDevice>(
 ) -> CommandOutcome {
     let started = Instant::now();
     if command.deadline.is_some_and(|deadline| started > deadline) {
-        record_metric(metrics, command.source, |metric| metric.overruns += 1);
+        if command.source.records_metrics() {
+            record_metric(metrics, command.source, |metric| metric.overruns += 1);
+        }
         return CommandOutcome::Overrun;
     }
 
@@ -417,17 +428,21 @@ fn execute_command<D: InputDevice>(
     let completed = Instant::now();
     match result {
         Ok(()) => {
-            record_metric(metrics, command.source, |metric| {
-                metric.record_completed(
-                    started,
-                    started.duration_since(command.enqueued),
-                    completed.duration_since(started),
-                )
-            });
+            if command.source.records_metrics() {
+                record_metric(metrics, command.source, |metric| {
+                    metric.record_completed(
+                        started,
+                        started.duration_since(command.enqueued),
+                        completed.duration_since(started),
+                    )
+                });
+            }
             CommandOutcome::Completed
         }
         Err(error) => {
-            record_metric(metrics, command.source, |metric| metric.errors += 1);
+            if command.source.records_metrics() {
+                record_metric(metrics, command.source, |metric| metric.errors += 1);
+            }
             CommandOutcome::Failed(error.to_string())
         }
     }
@@ -623,14 +638,14 @@ mod tests {
     }
 
     #[test]
-    fn writer_fails_explicitly_when_backend_was_not_prepared() {
+    fn writer_fails_explicitly_when_worker_was_not_prepared() {
         let error = UinputInput::new()
             .writer(InputSource::Autopot, Duration::from_millis(10))
             .err()
             .unwrap()
             .to_string();
         assert!(error.contains("stage=get writer"));
-        assert!(error.contains("backend no preparado"));
+        assert!(error.contains("worker no preparado"));
     }
 
     /// Manual Linux benchmark. It injects F12 + left-click for 100 seconds;

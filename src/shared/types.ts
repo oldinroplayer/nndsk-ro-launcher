@@ -35,7 +35,6 @@ export interface AutopotConfig {
 
 export interface AutopotStatusEvent {
   active: boolean
-  inputBackend: CombatInputBackend
   effectiveDelayMs: number
   curHp: number
   maxHp: number
@@ -92,7 +91,6 @@ export interface AutobuffStatusEvent {
 
 export interface SpammerStatusEvent {
   active: boolean
-  inputBackend: CombatInputBackend
   effectiveDelayMs: number
   armed: boolean
   spamming: boolean
@@ -112,13 +110,10 @@ export interface ServerConfig {
   patcherPath?: string | null
   winePrefix?: string | null
   runner?: string | null
-  combatInputBackend?: CombatInputBackend
   autopot?: AutopotConfig
   spammer?: SpammerConfig
   autobuff?: AutobuffConfig
 }
-
-export type CombatInputBackend = 'uinput' | 'ydotool'
 
 export interface DependencyStatus {
   wine: boolean
@@ -129,8 +124,6 @@ export interface DependencyStatus {
   audioDriver: string
   audioStack: string
   audioWarning: string | null
-  ydotoolInputOk: boolean
-  ydotoolInputWarning: string | null
   inputGroupOk: boolean
   inputGroupWarning: string | null
   uinputInputOk: boolean
@@ -144,11 +137,6 @@ export interface DependencyStatus {
 export type AudioStatus = Pick<
   DependencyStatus,
   'audioOk' | 'audioDriver' | 'audioStack' | 'audioWarning'
->
-
-export type YdotoolInputStatus = Pick<
-  DependencyStatus,
-  'ydotoolInputOk' | 'ydotoolInputWarning'
 >
 
 export type InputGroupStatus = Pick<
@@ -170,8 +158,6 @@ export type AdvancedDepsStatus = Pick<
   | 'inputGroupWarning'
   | 'uinputInputOk'
   | 'uinputInputWarning'
-  | 'ydotoolInputOk'
-  | 'ydotoolInputWarning'
   | 'prefixOk'
   | 'prefixWarning'
   | 'dxvkOk'

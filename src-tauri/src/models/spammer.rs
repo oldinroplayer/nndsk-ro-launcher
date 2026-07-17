@@ -1,11 +1,10 @@
-use ro_tools_core::{CombatInputBackend, SpammerConfig};
+use ro_tools_core::SpammerConfig;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpammerStatusEvent {
     pub active: bool,
-    pub input_backend: CombatInputBackend,
     pub effective_delay_ms: u64,
     pub armed: bool,
     pub spamming: bool,
@@ -22,7 +21,6 @@ impl Default for SpammerStatusEvent {
     fn default() -> Self {
         Self {
             active: false,
-            input_backend: CombatInputBackend::Uinput,
             effective_delay_ms: SpammerConfig::default().delay_ms,
             armed: false,
             spamming: false,

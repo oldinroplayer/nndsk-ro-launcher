@@ -25,10 +25,6 @@ pub trait HeldKeyWriter: Send + Sync {
     fn key_up(&self, key: &str) -> Result<(), ToolsError>;
 }
 
-pub trait PointerWriter: Send + Sync {
-    fn click_left(&self) -> Result<(), ToolsError>;
-}
-
 /// Writes the complete spam sequence as one non-interleavable command.
 pub trait SpamCycleWriter: Send + Sync {
     /// Returns false when the cycle was deliberately skipped after its deadline.

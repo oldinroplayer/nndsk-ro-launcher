@@ -1,10 +1,9 @@
-use std::sync::Arc;
 use tauri::AppHandle;
 
 use crate::models::server::ServerConfig;
 use crate::tools::autopot::{load_profiles, resolve_profile, AutopotHandle};
 use crate::tools::game_pid::resolve_game_pid_with_retry;
-use crate::tools::input::{ensure_ydotoold, InputGateway, YdotoolDaemon};
+use crate::tools::input::InputGateway;
 use crate::utils::{effective_prefix, emit_tool_log_opt};
 
 /// Orquesta arranque de AutoPot: resuelve PID, valida input y delega al servicio.
@@ -12,7 +11,6 @@ pub async fn start_session(
     app: AppHandle,
     handle: &AutopotHandle,
     input: InputGateway,
-    ydotoold: Arc<YdotoolDaemon>,
     launcher_pid: u32,
     server: ServerConfig,
 ) -> Result<(), String> {
@@ -50,25 +48,11 @@ pub async fn start_session(
         format!("[AutoPot] PID seleccionado: {pid} ({detail})"),
     );
 
-    match server.combat_input_backend {
-        ro_tools_core::CombatInputBackend::Ydotool => {
-            ensure_ydotoold(Some(&app), ydotoold.as_ref()).await?
-        }
-        ro_tools_core::CombatInputBackend::Uinput if !input.is_uinput_prepared() => {
-            return Err("AutoPot no puede iniciar: uinput no fue preparado antes de Wine".into())
-        }
-        ro_tools_core::CombatInputBackend::Uinput => {}
+    if !input.is_prepared() {
+        return Err("AutoPot no puede iniciar: uinput no fue preparado antes de Wine".into());
     }
 
     handle
-        .start(
-            app,
-            pid,
-            server.autopot.clone(),
-            profile,
-            server.combat_input_backend,
-            input,
-            ydotoold,
-        )
+        .start(app, pid, server.autopot.clone(), profile, input)
         .await
 }

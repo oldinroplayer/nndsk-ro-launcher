@@ -69,7 +69,7 @@ export function AutopotPanel() {
   const launching = useLauncherStore((s) => s.status === 'launching')
   const hero = useUiModeStore((s) => s.mode === 'ingame')
   const available = isRunning && !!server
-  const minimumDelayMs = server?.combatInputBackend === 'ydotool' ? 50 : 10
+  const minimumDelayMs = 10
   const hasCharacter = available && !!status.characterName
   const [flashHp, setFlashHp] = useState(false)
   const [flashSp, setFlashSp] = useState(false)

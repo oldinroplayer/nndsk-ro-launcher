@@ -26,7 +26,6 @@
     }
   ],
   "defaults": {
-    "combatInputBackend": "uinput",
     "autopot": {
       "enabled": false,
       "hpKey": "F8",
@@ -44,10 +43,6 @@
     },
     "autobuff": { "enabled": false, "delayMs": 300, "rules": [] }
   },
-  "legacyCombatInputBackends": [
-    { "input": "stable", "expectedCanonical": "uinput" },
-    { "input": "lowLatency", "expectedCanonical": "uinput" }
-  ],
   "legacySpammer": {
     "input": {
       "keys": ["F3", "F4"],

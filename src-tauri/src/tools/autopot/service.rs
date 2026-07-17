@@ -1,14 +1,14 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use ro_tools_core::{AutopotConfig, ClientProfile, CombatInputBackend, MemoryReader};
+use ro_tools_core::{AutopotConfig, ClientProfile, MemoryReader};
 use ro_tools_linux::{address_in_maps, ProcMemoryReader};
 use tauri::AppHandle;
 use tokio::sync::watch;
 use tokio::time::{interval, Interval, MissedTickBehavior};
 
 use crate::models::autopot::AutopotStatusEvent;
-use crate::tools::input::{InputGateway, InputSource, YdotoolDaemon};
+use crate::tools::input::{InputGateway, InputSource};
 use crate::tools::session::SessionController;
 use crate::utils::emit_tool_log_opt;
 
@@ -65,23 +65,16 @@ impl AutopotHandle {
         pid: u32,
         config: AutopotConfig,
         profile: ClientProfile,
-        backend: CombatInputBackend,
         input: InputGateway,
-        ydotoold: Arc<YdotoolDaemon>,
     ) -> Result<(), String> {
         let memory = ProcMemoryReader::open(pid)
             .map_err(|e| format!("No se pudo abrir memoria PID {pid}: {e}"))?;
 
         log_startup_probe(&app, pid, &memory, &profile);
 
-        let min_delay_ms = if backend == CombatInputBackend::Uinput {
-            10
-        } else {
-            50
-        };
-        let config = config.clamped_with_min_delay(min_delay_ms);
+        let config = config.clamped();
         let writer = input
-            .writer_for(backend, InputSource::Autopot, config.delay_ms)
+            .writer(InputSource::Autopot, config.delay_ms)
             .map_err(|error| error.to_string())?;
 
         let (config_tx, config_rx) = watch::channel(config.clone());
@@ -90,9 +83,8 @@ impl AutopotHandle {
         emit_tool_log_opt(
             Some(&app),
             format!(
-                "[AutoPot] Loop iniciado backend={} delay efectivo={}ms",
-                backend.as_str(),
-                config.delay_ms
+                "[AutoPot] Loop iniciado backend=uinput delay efectivo={}ms",
+                config.delay_ms,
             ),
         );
 
@@ -108,8 +100,6 @@ impl AutopotHandle {
                     config_rx,
                     status_arc,
                     gateway: input,
-                    ydotoold,
-                    backend,
                 })
                 .await;
             })
@@ -160,13 +150,8 @@ fn log_startup_probe(
     }
 }
 
-pub(crate) fn new_ticker(delay_ms: u64, backend: CombatInputBackend) -> Interval {
-    let minimum = if backend == CombatInputBackend::Uinput {
-        10
-    } else {
-        50
-    };
-    let mut ticker = interval(Duration::from_millis(delay_ms.max(minimum)));
+pub(crate) fn new_ticker(delay_ms: u64) -> Interval {
+    let mut ticker = interval(Duration::from_millis(delay_ms.max(10)));
     ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
     ticker
 }

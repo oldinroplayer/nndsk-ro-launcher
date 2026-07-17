@@ -29,20 +29,10 @@ pub struct AutopotEngine<M: MemoryReader, I: KeyPressWriter> {
 
 impl<M: MemoryReader, I: KeyPressWriter> AutopotEngine<M, I> {
     pub fn new(memory: M, input: I, config: AutopotConfig, profile: ClientProfile) -> Self {
-        Self::new_with_min_delay(memory, input, config, profile, 50)
-    }
-
-    pub fn new_with_min_delay(
-        memory: M,
-        input: I,
-        config: AutopotConfig,
-        profile: ClientProfile,
-        min_delay_ms: u64,
-    ) -> Self {
         Self {
             memory,
             input,
-            config: config.clamped_with_min_delay(min_delay_ms),
+            config: config.clamped(),
             profile,
             hp_pot_count: 0,
             tick_count: 0,
@@ -51,11 +41,7 @@ impl<M: MemoryReader, I: KeyPressWriter> AutopotEngine<M, I> {
     }
 
     pub fn update_config(&mut self, config: AutopotConfig) {
-        self.update_config_with_min_delay(config, 50);
-    }
-
-    pub fn update_config_with_min_delay(&mut self, config: AutopotConfig, min_delay_ms: u64) {
-        self.config = config.clamped_with_min_delay(min_delay_ms);
+        self.config = config.clamped();
         self.hp_pot_count = 0;
     }
 

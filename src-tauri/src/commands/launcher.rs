@@ -16,10 +16,12 @@ pub async fn launch_game(
         app,
         state.game.clone(),
         reservation,
-        &state.autopot,
-        &state.autobuff,
-        &state.spammer,
-        &state.input,
+        launcher::LaunchTools {
+            autopot: &state.autopot,
+            autobuff: &state.autobuff,
+            spammer: &state.spammer,
+            input: &state.input,
+        },
         server,
     )
     .await;

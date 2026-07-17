@@ -1,11 +1,10 @@
-use ro_tools_core::{AutopotConfig, CombatInputBackend};
+use ro_tools_core::AutopotConfig;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AutopotStatusEvent {
     pub active: bool,
-    pub input_backend: CombatInputBackend,
     pub effective_delay_ms: u64,
     pub cur_hp: u32,
     pub max_hp: u32,
@@ -21,7 +20,6 @@ impl Default for AutopotStatusEvent {
     fn default() -> Self {
         Self {
             active: false,
-            input_backend: CombatInputBackend::Uinput,
             effective_delay_ms: AutopotConfig::default().delay_ms,
             cur_hp: 0,
             max_hp: 0,

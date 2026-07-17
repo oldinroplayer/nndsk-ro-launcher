@@ -14,32 +14,40 @@ use crate::utils::{
     wine_command, work_dir_from_exe, ExitEvent, EVENT_GAME_EXIT,
 };
 
+pub struct LaunchTools<'a> {
+    pub autopot: &'a AutopotHandle,
+    pub autobuff: &'a AutobuffHandle,
+    pub spammer: &'a SpammerHandle,
+    pub input: &'a InputGateway,
+}
+
 pub async fn launch_game(
     app: AppHandle,
     game: GameProcessHandle,
     reservation: LaunchReservation,
-    autopot: &AutopotHandle,
-    autobuff: &AutobuffHandle,
-    spammer: &SpammerHandle,
-    input: &InputGateway,
+    tools: LaunchTools<'_>,
     server: ServerConfig,
 ) -> Result<(), String> {
+    let LaunchTools {
+        autopot,
+        autobuff,
+        spammer,
+        input,
+    } = tools;
     let ctx = resolve_wine_context(server.wine_prefix.clone(), server.runner.clone()).await?;
 
     if !is_prefix_configured(&ctx.prefix) {
         return Err("El WINEPREFIX no está configurado. Ejecuta el setup primero.".to_string());
     }
 
-    if server.combat_input_backend == ro_tools_core::CombatInputBackend::Uinput {
-        let devices = input
-            .prepare_uinput()
-            .await
-            .map_err(|error| format!("No se pudo preparar input uinput: {error}"))?;
-        emit_tool_log_opt(
-            Some(&app),
-            format!("[Launch] uinput preparado antes de Wine: {devices}"),
-        );
-    }
+    let devices = input
+        .prepare()
+        .await
+        .map_err(|error| format!("No se pudo preparar input uinput: {error}"))?;
+    emit_tool_log_opt(
+        Some(&app),
+        format!("[Launch] uinput preparado antes de Wine: {devices}"),
+    );
 
     install_gecko(&app, &ctx.prefix, &ctx.resolved.wine_bin).await?;
     audio::ensure_audio_driver(Some(&app), &ctx.prefix, &ctx.resolved).await?;

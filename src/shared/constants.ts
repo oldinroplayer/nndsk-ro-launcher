@@ -19,8 +19,6 @@ export const DEFAULT_PREFIX_PATH = '~/.local/share/ro-launcher/prefix'
 
 export const LEGACY_DEFAULT_WINE = '/usr/bin/wine'
 
-export const DEFAULT_COMBAT_INPUT_BACKEND = 'uinput' as const
-
 export const POT_KEYS = [
   'F1',
   'F2',

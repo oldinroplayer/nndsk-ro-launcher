@@ -1,5 +1,4 @@
 import { audioFromDeps } from '../../shared/audio'
-import { ydotoolInputFromDeps } from '../../shared/ydotoolInput'
 import type { AdvancedDepsStatus, DependencyStatus } from '../../shared/types'
 import type { DotStatus } from '../../shared/ui/StatusDot'
 
@@ -26,7 +25,6 @@ export function advancedStatusFromDeps(
 ): AdvancedDepsStatus {
   return {
     ...audioFromDeps(deps),
-    ...ydotoolInputFromDeps(deps),
     inputGroupOk: deps.inputGroupOk,
     inputGroupWarning: deps.inputGroupWarning,
     uinputInputOk: deps.uinputInputOk,

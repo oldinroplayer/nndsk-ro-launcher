@@ -66,14 +66,10 @@ impl Default for AutopotConfig {
 
 impl AutopotConfig {
     pub fn clamped(&self) -> Self {
-        self.clamped_with_min_delay(50)
-    }
-
-    pub fn clamped_with_min_delay(&self, min_delay_ms: u64) -> Self {
         let mut c = self.clone();
         c.hp_percent = c.hp_percent.clamp(1, 99);
         c.sp_percent = c.sp_percent.clamp(1, 99);
-        c.delay_ms = c.delay_ms.clamp(min_delay_ms, 2000);
+        c.delay_ms = c.delay_ms.clamp(10, 2000);
         c
     }
 

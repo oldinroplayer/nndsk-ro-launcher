@@ -11,8 +11,6 @@ pub struct DependencyStatus {
     pub audio_driver: String,
     pub audio_stack: String,
     pub audio_warning: Option<String>,
-    pub ydotool_input_ok: bool,
-    pub ydotool_input_warning: Option<String>,
     pub input_group_ok: bool,
     pub input_group_warning: Option<String>,
     pub uinput_input_ok: bool,

@@ -1,7 +1,6 @@
 import { open } from '@tauri-apps/plugin-dialog'
 import { useState } from 'react'
 import { useAsyncAction } from '../../shared/hooks/useAsyncAction'
-import { DEFAULT_COMBAT_INPUT_BACKEND } from '../../shared/constants'
 import { basename, nameFromExePath } from '../../shared/path'
 import { useServersStore } from './servers.store'
 
@@ -48,7 +47,6 @@ export function AddServerModal({ onClose }: Props) {
         id,
         name: name.trim(),
         executablePath: exePath.trim(),
-        combatInputBackend: DEFAULT_COMBAT_INPUT_BACKEND,
       })
       onClose()
     })

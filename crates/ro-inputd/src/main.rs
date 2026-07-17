@@ -9,7 +9,6 @@ use std::path::{Path, PathBuf};
 
 const BLACKLIST: &[&str] = &[
     "mouse",
-    "ydotoold",
     "ro-launcher",
     "uinput",
     "power",

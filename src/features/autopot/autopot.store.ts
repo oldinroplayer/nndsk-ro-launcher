@@ -14,7 +14,6 @@ interface AutopotState {
 
 const idleStatus = (): AutopotStatusEvent => ({
   active: false,
-  inputBackend: 'uinput',
   effectiveDelayMs: DEFAULT_AUTOPOT_CONFIG.delayMs,
   curHp: 0,
   maxHp: 0,
@@ -41,7 +40,6 @@ export const useAutopotStore = create<AutopotState>((set) => ({
 function statusEquals(a: AutopotStatusEvent, b: AutopotStatusEvent): boolean {
   return (
     a.active === b.active &&
-    a.inputBackend === b.inputBackend &&
     a.effectiveDelayMs === b.effectiveDelayMs &&
     a.curHp === b.curHp &&
     a.maxHp === b.maxHp &&
